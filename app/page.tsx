@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import GuestExplore from "./guest-explore";
 
 type User = { id: string; email?: string };
 type DJ = { id: string; user_id: string; stage_name: string; slug: string; short_bio: string | null; primary_city: string | null; country: string | null; genres: string[]; marketplace_visibility: boolean };
@@ -28,7 +29,9 @@ const sectionTypes = ["hero", "bio", "music", "video", "gallery", "highlights", 
 const slugify = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const currency = (value: number | null, code = "SAR") => value == null ? "TBC" : new Intl.NumberFormat("en-SA", { style: "currency", currency: code, maximumFractionDigits: 0 }).format(value);
 
-export default function Page() {
+export default function Page() { return <GuestExplore />; }
+
+function AccountWorkspace() {
   const [user, setUser] = useState<User | null>(null); const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [tab, setTab] = useState<Tab>("overview"); const [busy, setBusy] = useState(false); const [notice, setNotice] = useState(""); const [verificationEmail, setVerificationEmail] = useState("");
   const [dj, setDj] = useState<DJ | null>(null); const [org, setOrg] = useState<Org | null>(null); const [epk, setEpk] = useState<Epk | null>(null); const [sections, setSections] = useState<{ id: string; type: string; enabled: boolean; sort_order: number }[]>([]);
