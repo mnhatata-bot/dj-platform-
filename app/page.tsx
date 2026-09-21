@@ -27,7 +27,7 @@ const currency = (value: number | null, code = "SAR") => value == null ? "TBC" :
 
 export default function Page() {
   const [user, setUser] = useState<User | null>(null); const [mode, setMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [tab, setTab] = useState<Tab>("overview"); const [busy, setBusy] = useState(false); const [notice, setNotice] = useState("");
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [tab, setTab] = useState<Tab>("overview"); const [busy, setBusy] = useState(false); const [notice, setNotice] = useState(""); const [verificationEmail, setVerificationEmail] = useState("");
   const [dj, setDj] = useState<DJ | null>(null); const [org, setOrg] = useState<Org | null>(null); const [epk, setEpk] = useState<Epk | null>(null); const [sections, setSections] = useState<{ id: string; type: string; enabled: boolean; sort_order: number }[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]); const [applications, setApplications] = useState<any[]>([]); const [events, setEvents] = useState<EventItem[]>([]); const [communities, setCommunities] = useState<Community[]>([]); const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]); const [bookings, setBookings] = useState<any[]>([]);
   const [form, setForm] = useState({ stageName: "", city: "Riyadh", country: "Saudi Arabia", bio: "", genre: "Tech House", orgName: "", orgKind: "PROMOTER", opportunityTitle: "", opportunityDescription: "", eventTitle: "", venue: "", eventDate: "", communityName: "", ticketName: "General admission", ticketPrice: "100", ticketCapacity: "100", scannerToken: "" });
@@ -51,7 +51,35 @@ export default function Page() {
     const eventIds = (allEvents ?? []).filter((event: any) => event.organization_id === currentOrg?.id).map((event: any) => event.id); if (eventIds.length) { const { data } = await supabase.from("ticket_types").select("*").in("event_id", eventIds).order("created_at", { ascending: false }); setTicketTypes((data ?? []) as TicketType[]); } else setTicketTypes([]);
   }
   function tell(message: string) { setNotice(message); window.setTimeout(() => setNotice(""), 5000); }
-  async function submitAuth(event: FormEvent) { event.preventDefault(); setBusy(true); const result = mode === "login" ? await supabase.auth.signInWithPassword({ email, password }) : await supabase.auth.signUp({ email, password, options: { data: { display_name: email.split("@")[0] } } }); setBusy(false); tell(result.error ? result.error.message : mode === "signup" && !result.data.session ? "Check your inbox to verify your account." : "You are signed in."); }
+  function authRedirectUrl() {
+    return typeof window === "undefined" ? undefined : `${window.location.origin}/`;
+  }
+  async function submitAuth(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    const result = mode === "login"
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: authRedirectUrl(), data: { display_name: email.split("@")[0] } },
+      });
+    setBusy(false);
+    if (result.error) return tell(result.error.message);
+    if (mode === "signup" && !result.data.session) {
+      setVerificationEmail(email);
+      return tell("Verification email requested. Open its link on this device to finish signing up.");
+    }
+    tell("You are signed in.");
+  }
+  async function resendVerification() {
+    const target = verificationEmail || email;
+    if (!target) return tell("Enter the email address you used to sign up first.");
+    setBusy(true);
+    const { error } = await supabase.auth.resend({ type: "signup", email: target, options: { emailRedirectTo: authRedirectUrl() } });
+    setBusy(false);
+    tell(error ? error.message : "A new verification email was requested. Check spam/junk as well.");
+  }
   async function saveArtist() { if (!user || !form.stageName.trim()) return tell("Add a stage name first."); setBusy(true); const slug = `${slugify(form.stageName)}-${user.id.slice(0, 6)}`; const payload = { user_id: user.id, stage_name: form.stageName.trim(), slug, short_bio: form.bio, long_bio: form.bio, primary_city: form.city, country: form.country, genres: [form.genre], marketplace_visibility: true }; const result = dj ? await supabase.from("dj_profiles").update(payload).eq("id", dj.id).select().single() : await supabase.from("dj_profiles").insert(payload).select().single(); setBusy(false); tell(result.error ? result.error.message : dj ? "Artist profile saved." : "Artist profile created."); await load(); }
   async function saveEpk() { if (!dj) return tell("Create your artist profile first."); setBusy(true); const payload = { dj_profile_id: dj.id, title: `${dj.stage_name} EPK`, slug: `${dj.slug}-epk`, template_id: theme, locale: "en", seo_description: form.bio }; const result = epk ? await supabase.from("epks").update(payload).eq("id", epk.id).select().single() : await supabase.from("epks").insert(payload).select().single(); if (!result.error && !epk) { const newEpk = result.data as Epk; await supabase.from("epk_sections").insert(sectionTypes.map((type, index) => ({ epk_id: newEpk.id, type, enabled: ["hero", "bio", "music", "gallery", "booking"].includes(type), sort_order: index }))); } setBusy(false); tell(result.error ? result.error.message : "EPK saved."); await load(); }
   async function publishEpk() { if (!epk) return; setBusy(true); const { data, error } = await supabase.rpc("publish_epk", { p_epk: epk.id }); setBusy(false); tell(error ? error.message : `EPK published as version ${data}.`); await load(); }
@@ -67,7 +95,7 @@ export default function Page() {
   async function validateScan() { const eventId = selectedEventId || ownedEvents[0]?.id; if (!eventId || !form.scannerToken.trim()) return tell("Select an event and enter a credential token."); setBusy(true); const { data, error } = await supabase.rpc("validate_ticket_checkin", { p_token: form.scannerToken.trim(), p_event: eventId, p_device: "web-pwa" }); setBusy(false); tell(error ? error.message : `Scanner result: ${data}`); }
   async function signOut() { await supabase.auth.signOut(); setUser(null); }
 
-  if (!user) return <main className="auth-shell"><section className="auth-intro"><div className="brand">DJ<span>PLATFORM</span></div><p className="eyebrow">THE OPERATING SYSTEM FOR LIVE MUSIC</p><h1>Build your <em>career.</em><br />Run the <em>room.</em></h1><p>Artist EPKs, booking discovery, promoter operations, communities and controlled entry—one connected platform.</p><div className="flow-note">Artist → opportunity → event → ticket → secure entry</div></section><form className="card auth-card" onSubmit={submitAuth}><p className="eyebrow">ACCESS THE PLATFORM</p><h2>{mode === "login" ? "Welcome back" : "Create your account"}</h2><label>Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Password<input required minLength={6} type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><button className="button primary" disabled={busy}>{busy ? "Working…" : mode === "login" ? "Sign in" : "Create account"}</button><button className="text-button" type="button" onClick={() => setMode(mode === "login" ? "signup" : "login")}>{mode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button>{notice && <div className="notice">{notice}</div>}</form></main>;
+  if (!user) return <main className="auth-shell"><section className="auth-intro"><div className="brand">DJ<span>PLATFORM</span></div><p className="eyebrow">THE OPERATING SYSTEM FOR LIVE MUSIC</p><h1>Build your <em>career.</em><br />Run the <em>room.</em></h1><p>Artist EPKs, booking discovery, promoter operations, communities and controlled entry—one connected platform.</p><div className="flow-note">Artist → opportunity → event → ticket → secure entry</div></section><form className="card auth-card" onSubmit={submitAuth}><p className="eyebrow">ACCESS THE PLATFORM</p><h2>{mode === "login" ? "Welcome back" : "Create your account"}</h2><label>Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Password<input required minLength={6} type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><button className="button primary" disabled={busy}>{busy ? "Working…" : mode === "login" ? "Sign in" : "Create account"}</button>{verificationEmail && <button className="button secondary full" type="button" onClick={resendVerification} disabled={busy}>Resend verification email</button>}<button className="text-button" type="button" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setVerificationEmail(""); }}>{mode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}</button>{notice && <div className="notice">{notice}</div>}</form></main>;
   const nav: { id: Tab; label: string; tag?: string }[] = [{ id: "overview", label: "Command center" }, { id: "artist", label: "Artist profile" }, { id: "epk", label: "EPK studio" }, { id: "marketplace", label: "Marketplace" }, { id: "promote", label: "Promoter desk" }, { id: "events", label: "Events & tickets" }, { id: "community", label: "Community" }, { id: "scanner", label: "Entry scanner", tag: "PWA" }];
   return <div className="app"><header className="topbar"><button className="brand logo-button" onClick={() => setTab("overview")}>DJ<span>PLATFORM</span></button><div className="top-actions"><span className="online"><i /> Live backend</span><span className="user-email">{user.email}</span><button className="icon-button" onClick={signOut} title="Sign out">↗</button></div></header><div className="shell"><aside className="sidebar"><div className="workspace-label">WORKSPACE</div>{nav.map((item) => <button key={item.id} className={`nav-button ${tab === item.id ? "active" : ""}`} onClick={() => setTab(item.id)}><span>{item.label}</span>{item.tag && <small>{item.tag}</small>}</button>)}<div className="sidebar-status"><b>{dj ? "Artist ready" : "Artist setup"}</b><span>{org ? `${org.name} connected` : "No organization yet"}</span></div></aside><main className="content">{notice && <div className="notice floating">{notice}</div>}
     {tab === "overview" && <Overview dj={dj} org={org} epk={epk} applications={applications} bookings={bookings} ownedEvents={ownedEvents} onNavigate={setTab} />}
