@@ -1,7 +1,26 @@
 "use client";
+import { Localized, useLegacy } from "@/modules/localization/ui/legacy";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+  useId,
+  cloneElement,
+  isValidElement,
+} from "react";
+import { Help } from "@/modules/ui/guided";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
+import { LanguageSwitch, useLocale } from "@/modules/localization/ui/provider";
+const CompleteGuide = dynamic(() => import("@/modules/guide/ui/guide"));
+const CameraScanner = dynamic(() => import("@/modules/checkin/ui/scanner"));
+const Wallet = dynamic(() => import("@/modules/ticketing/ui/wallet"));
+const Writer = dynamic(() => import("@/modules/ai/ui/writer"));
+const MediaLibrary = dynamic(() => import("@/modules/media/ui/library"));
+const Inbox = dynamic(() => import("@/modules/messaging/ui/inbox"));
+const AdminConsole = dynamic(() => import("@/modules/admin/ui/console"));
 
 type User = { id: string; email?: string };
 type DJ = {
@@ -14,6 +33,7 @@ type DJ = {
   country: string | null;
   genres: string[];
   marketplace_visibility: boolean;
+  translations?: { ar?: { stage_name?: string; short_bio?: string } };
 };
 type Org = { id: string; name: string; slug: string; kind: string };
 type Epk = {
@@ -79,6 +99,11 @@ type Tab =
   | "events"
   | "community"
   | "scanner"
+  | "media"
+  | "ai"
+  | "messages"
+  | "admin"
+  | "wallet"
   | "guide";
 
 const PLATFORM_DOMAIN = "cuelance.com";
@@ -141,6 +166,8 @@ const currency = (value: number | null, code = "SAR") =>
       }).format(value);
 
 export default function AccountWorkspace() {
+  const { t, locale } = useLocale();
+  const tr = useLegacy();
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -166,6 +193,8 @@ export default function AccountWorkspace() {
     city: "Riyadh",
     country: "Saudi Arabia",
     bio: "",
+    bioAr: "",
+    stageNameAr: "",
     genre: "Tech House",
     orgName: "",
     orgKind: "PROMOTER",
@@ -232,6 +261,8 @@ export default function AccountWorkspace() {
         city: currentDj.primary_city ?? "",
         country: currentDj.country ?? "",
         bio: currentDj.short_bio ?? "",
+        bioAr: currentDj.translations?.ar?.short_bio ?? "",
+        stageNameAr: currentDj.translations?.ar?.stage_name ?? "",
         genre: currentDj.genres?.[0] ?? "Tech House",
       }));
       const [
@@ -369,6 +400,9 @@ export default function AccountWorkspace() {
       slug,
       short_bio: form.bio,
       long_bio: form.bio,
+      translations: {
+        ar: { stage_name: form.stageNameAr, short_bio: form.bioAr },
+      },
       primary_city: form.city,
       country: form.country,
       genres: [form.genre],
@@ -413,18 +447,16 @@ export default function AccountWorkspace() {
       : await supabase.from("epks").insert(payload).select().single();
     if (!result.error && !epk) {
       const newEpk = result.data as Epk;
-      await supabase
-        .from("epk_sections")
-        .insert(
-          sectionTypes.map((type, index) => ({
-            epk_id: newEpk.id,
+      await supabase.from("epk_sections").insert(
+        sectionTypes.map((type, index) => ({
+          epk_id: newEpk.id,
+          type,
+          enabled: ["hero", "bio", "music", "gallery", "booking"].includes(
             type,
-            enabled: ["hero", "bio", "music", "gallery", "booking"].includes(
-              type,
-            ),
-            sort_order: index,
-          })),
-        );
+          ),
+          sort_order: index,
+        })),
+      );
     }
     setBusy(false);
     tell(result.error ? result.error.message : "EPK saved.");
@@ -468,39 +500,34 @@ export default function AccountWorkspace() {
     if (!org || !form.opportunityTitle.trim())
       return tell("Create an organization and complete the opportunity first.");
     setBusy(true);
-    const result = await supabase
-      .from("opportunities")
-      .insert({
-        organization_id: org.id,
-        title: form.opportunityTitle,
-        description:
-          form.opportunityDescription ||
-          "Details shared with selected artists.",
-        city: form.city,
-        country: form.country,
-        genres: [form.genre],
-        performance_type: "DJ set",
-        budget_min: 2500,
-        budget_max: 6000,
-        currency: "SAR",
-        event_date: form.eventDate || null,
-        status: "PUBLISHED",
-      });
+    const result = await supabase.from("opportunities").insert({
+      organization_id: org.id,
+      title: form.opportunityTitle,
+      description:
+        form.opportunityDescription || "Details shared with selected artists.",
+      city: form.city,
+      country: form.country,
+      genres: [form.genre],
+      performance_type: "DJ set",
+      budget_min: 2500,
+      budget_max: 6000,
+      currency: "SAR",
+      event_date: form.eventDate || null,
+      status: "PUBLISHED",
+    });
     setBusy(false);
     tell(result.error ? result.error.message : "Opportunity published.");
     await load();
   }
   async function apply(opportunity: Opportunity) {
     if (!dj) return tell("Create your artist profile before applying.");
-    const { error } = await supabase
-      .from("applications")
-      .insert({
-        opportunity_id: opportunity.id,
-        dj_profile_id: dj.id,
-        cover_note: `Available for ${opportunity.title}.`,
-        currency: opportunity.currency,
-        status: "SUBMITTED",
-      });
+    const { error } = await supabase.from("applications").insert({
+      opportunity_id: opportunity.id,
+      dj_profile_id: dj.id,
+      cover_note: `Available for ${opportunity.title}.`,
+      currency: opportunity.currency,
+      status: "SUBMITTED",
+    });
     tell(error ? error.message : "Application submitted.");
     await load();
   }
@@ -535,17 +562,15 @@ export default function AccountWorkspace() {
     const eventId = selectedEventId || ownedEvents[0]?.id;
     if (!eventId) return tell("Create or select an event first.");
     setBusy(true);
-    const result = await supabase
-      .from("ticket_types")
-      .insert({
-        event_id: eventId,
-        name: form.ticketName,
-        description: "Digital ticket with secure QR credential.",
-        price: Number(form.ticketPrice) || 0,
-        currency: "SAR",
-        capacity: Number(form.ticketCapacity) || 100,
-        status: "ACTIVE",
-      });
+    const result = await supabase.from("ticket_types").insert({
+      event_id: eventId,
+      name: form.ticketName,
+      description: "Digital ticket with secure QR credential.",
+      price: Number(form.ticketPrice) || 0,
+      currency: "SAR",
+      capacity: Number(form.ticketCapacity) || 100,
+      status: "ACTIVE",
+    });
     setBusy(false);
     tell(result.error ? result.error.message : "Ticket type is live.");
     await load();
@@ -554,30 +579,26 @@ export default function AccountWorkspace() {
     if (!org || !form.communityName.trim())
       return tell("Create an organization and name your community.");
     setBusy(true);
-    const result = await supabase
-      .from("communities")
-      .insert({
-        organization_id: org.id,
-        name: form.communityName,
-        slug: `${slugify(form.communityName)}-${Date.now().toString().slice(-5)}`,
-        description: "A curated community for event access and member updates.",
-        visibility: "PUBLIC",
-        membership_mode: "APPLICATION",
-        status: "ACTIVE",
-      });
+    const result = await supabase.from("communities").insert({
+      organization_id: org.id,
+      name: form.communityName,
+      slug: `${slugify(form.communityName)}-${Date.now().toString().slice(-5)}`,
+      description: "A curated community for event access and member updates.",
+      visibility: "PUBLIC",
+      membership_mode: "APPLICATION",
+      status: "ACTIVE",
+    });
     setBusy(false);
     tell(result.error ? result.error.message : "Community created.");
     await load();
   }
   async function requestMembership(community: Community) {
     if (!user) return;
-    const { error } = await supabase
-      .from("community_members")
-      .insert({
-        community_id: community.id,
-        user_id: user.id,
-        status: "PENDING",
-      });
+    const { error } = await supabase.from("community_members").insert({
+      community_id: community.id,
+      user_id: user.id,
+      status: "PENDING",
+    });
     tell(error ? error.message : "Membership request submitted.");
   }
   async function issueComplimentaryTicket(ticket: TicketType) {
@@ -595,6 +616,7 @@ export default function AccountWorkspace() {
         ? error.message
         : `Complimentary ticket issued: ${String(data).slice(0, 8)}.`,
     );
+    if (!error) setTab("wallet");
   }
   async function validateScan() {
     const eventId = selectedEventId || ownedEvents[0]?.id;
@@ -611,6 +633,8 @@ export default function AccountWorkspace() {
   }
   async function signOut() {
     await supabase.auth.signOut();
+    for (const key of Object.keys(sessionStorage))
+      if (key.startsWith("cuelance.")) sessionStorage.removeItem(key);
     setUser(null);
   }
 
@@ -621,25 +645,37 @@ export default function AccountWorkspace() {
           <div className="brand">
             CUE<span>LANCE</span>
           </div>
-          <p className="eyebrow">THE OPERATING SYSTEM FOR LIVE MUSIC</p>
+          <p className="eyebrow">
+            <Localized text="THE OPERATING SYSTEM FOR LIVE MUSIC" />
+          </p>
           <h1>
-            Build your <em>career.</em>
+            <Localized text="Build your" />{" "}
+            <em>
+              <Localized text="career." />
+            </em>
             <br />
-            Run the <em>room.</em>
+            <Localized text="Run the" />{" "}
+            <em>
+              <Localized text="room." />
+            </em>
           </h1>
           <p>
-            Artist EPKs, booking discovery, promoter operations, communities and
-            controlled entry—one connected platform.
+            <Localized text="Artist EPKs, booking discovery, promoter operations, communities and controlled entry—one connected platform." />{" "}
           </p>
           <div className="flow-note">
-            Artist → opportunity → event → ticket → secure entry
+            <Localized text="Artist → opportunity → event → ticket → secure entry" />{" "}
           </div>
         </section>
         <form className="card auth-card" onSubmit={submitAuth}>
-          <p className="eyebrow">ACCESS CUELANCE</p>
-          <h2>{mode === "login" ? "Welcome back" : "Create your account"}</h2>
+          <LanguageSwitch />
+          <p className="eyebrow">
+            <Localized text="ACCESS CUELANCE" />
+          </p>
+          <h2>
+            {tr(mode === "login" ? "Welcome back" : "Create your account")}
+          </h2>
           <label>
-            Email
+            <Localized text="Email" />{" "}
             <input
               required
               type="email"
@@ -648,7 +684,7 @@ export default function AccountWorkspace() {
             />
           </label>
           <label>
-            Password
+            <Localized text="Password" />{" "}
             <input
               required
               minLength={8}
@@ -658,11 +694,13 @@ export default function AccountWorkspace() {
             />
           </label>
           <button className="button primary" disabled={busy}>
-            {busy
-              ? "Working…"
-              : mode === "login"
-                ? "Sign in"
-                : "Create account"}
+            {tr(
+              busy
+                ? "Working…"
+                : mode === "login"
+                  ? "Sign in"
+                  : "Create account",
+            )}
           </button>
           {verificationEmail && (
             <button
@@ -671,7 +709,7 @@ export default function AccountWorkspace() {
               onClick={resendVerification}
               disabled={busy}
             >
-              Resend verification email
+              <Localized text="Resend verification email" />{" "}
             </button>
           )}
           <button
@@ -682,9 +720,11 @@ export default function AccountWorkspace() {
               setVerificationEmail("");
             }}
           >
-            {mode === "login"
-              ? "New here? Create an account"
-              : "Already have an account? Sign in"}
+            {tr(
+              mode === "login"
+                ? "New here? Create an account"
+                : "Already have an account? Sign in",
+            )}
           </button>
           {notice && <div className="notice">{notice}</div>}
         </form>
@@ -700,6 +740,11 @@ export default function AccountWorkspace() {
     { id: "community", label: "Community" },
     { id: "scanner", label: "Entry scanner", tag: "PWA" },
     { id: "guide", label: "Guide & examples", tag: "HELP" },
+    { id: "media", label: t("nav.media") },
+    { id: "ai", label: t("nav.ai") },
+    { id: "wallet", label: t("nav.wallet") },
+    { id: "messages", label: t("nav.messages") },
+    { id: "admin", label: t("nav.admin") },
   ];
   return (
     <div className="app">
@@ -711,11 +756,12 @@ export default function AccountWorkspace() {
           CUE<span>LANCE</span>
         </button>
         <div className="top-actions">
+          <LanguageSwitch />
           <button className="help-button" onClick={() => setTab("guide")}>
-            ? Guide
+            <Localized text="? Guide" />{" "}
           </button>
           <span className="online">
-            <i /> Live backend
+            <i /> <Localized text="Live backend" />{" "}
           </span>
           <span className="user-email">{user.email}</span>
           <button className="icon-button" onClick={signOut} title="Sign out">
@@ -725,14 +771,32 @@ export default function AccountWorkspace() {
       </header>
       <div className="shell">
         <aside className="sidebar">
-          <div className="workspace-label">CUELANCE WORKSPACE</div>
+          <div className="workspace-label">
+            <Localized text="CUELANCE WORKSPACE" />
+          </div>
           {nav.map((item) => (
             <button
               key={item.id}
               className={`nav-button ${tab === item.id ? "active" : ""}`}
               onClick={() => setTab(item.id)}
             >
-              <span>{item.label}</span>
+              <span>
+                {locale === "ar"
+                  ? (
+                      {
+                        overview: "لوحة التحكم",
+                        artist: "ملف الفنان",
+                        epk: "استوديو الملف الصحفي",
+                        marketplace: "سوق الفرص",
+                        promote: "مكتب المروج",
+                        events: "الفعاليات والتذاكر",
+                        community: "المجتمع",
+                        scanner: "ماسح الدخول",
+                        guide: "الدليل والأمثلة",
+                      } as Record<string, string>
+                    )[item.id] || item.label
+                  : item.label}
+              </span>
               {item.tag && <small>{item.tag}</small>}
             </button>
           ))}
@@ -821,18 +885,25 @@ export default function AccountWorkspace() {
               onJoin={requestMembership}
             />
           )}
-          {tab === "scanner" && (
-            <Scanner
-              ownedEvents={ownedEvents}
-              selectedEventId={selectedEventId}
-              setSelectedEventId={setSelectedEventId}
-              form={form}
-              setForm={setForm}
-              busy={busy}
-              onValidate={validateScan}
+          {tab === "scanner" && <CameraScanner />}
+          {tab === "wallet" && <Wallet />}
+          {tab === "media" && <MediaLibrary epkId={epk?.id} />}
+          {tab === "ai" && (
+            <Writer
+              initial={locale === "ar" ? form.bioAr : form.bio}
+              onAccept={(text, language) => {
+                setForm({
+                  ...form,
+                  [language === "ar" ? "bioAr" : "bio"]: text,
+                });
+                setTab("artist");
+                tell(t("ai.accepted"));
+              }}
             />
           )}
-          {tab === "guide" && <GuideDesk onNavigate={setTab} />}
+          {tab === "messages" && <Inbox />}
+          {tab === "admin" && <AdminConsole />}
+          {tab === "guide" && <CompleteGuide />}
         </main>
       </div>
     </div>
@@ -877,8 +948,12 @@ function Overview({
       <div className="two-column">
         <section className="card">
           <div className="card-title">
-            <h3>Pipeline</h3>
-            <span>Live data</span>
+            <h3>
+              <Localized text="Pipeline" />
+            </h3>
+            <span>
+              <Localized text="Live data" />
+            </span>
           </div>
           {applications.length ? (
             applications.slice(0, 5).map((application: any) => (
@@ -900,7 +975,9 @@ function Overview({
           )}
         </section>
         <section className="card dark-card">
-          <p className="eyebrow">NEXT BEST MOVE</p>
+          <p className="eyebrow">
+            <Localized text="NEXT BEST MOVE" />
+          </p>
           <h2>
             {!dj
               ? "Build the artist profile."
@@ -911,8 +988,7 @@ function Overview({
                   : "Create an event and ticket type."}
           </h2>
           <p>
-            A platform becomes valuable when each record leads to the next
-            operational action.
+            <Localized text="A platform becomes valuable when each record leads to the next operational action." />{" "}
           </p>
           <button
             className="button light"
@@ -922,7 +998,7 @@ function Overview({
               )
             }
           >
-            Continue setup
+            <Localized text="Continue setup" />{" "}
           </button>
         </section>
       </div>
@@ -975,10 +1051,25 @@ function ArtistEditor({ form, setForm, dj, busy, onSave }: any) {
               placeholder="The concise story promoters should understand in 15 seconds."
             />
           </Field>
+          <Field label="Arabic stage name">
+            <input
+              dir="rtl"
+              value={form.stageNameAr}
+              onChange={(e) =>
+                setForm({ ...form, stageNameAr: e.target.value })
+              }
+            />
+          </Field>
+          <Field label="Arabic biography" wide>
+            <textarea
+              dir="rtl"
+              value={form.bioAr}
+              onChange={(e) => setForm({ ...form, bioAr: e.target.value })}
+            />
+          </Field>
         </div>
         <div className="module-note">
-          Profile ownership is enforced by the database: an artist cannot edit
-          another DJ’s record.
+          <Localized text="Profile ownership is enforced by the database: an artist cannot edit another DJ’s record." />{" "}
         </div>
       </section>
     </>
@@ -996,6 +1087,7 @@ function EpkStudio({
   onToggle,
 }: any) {
   const selected = templates.find((item) => item.id === theme)!;
+  const { t } = useLocale();
   return (
     <>
       <PageHeading
@@ -1008,10 +1100,13 @@ function EpkStudio({
       <div className="epk-layout">
         <section className="card section-panel">
           <div className="card-title">
-            <h3>Sections</h3>
+            <h3>
+              <Localized text="Sections" />
+            </h3>
             <span>
               {sections.filter((s: any) => s.enabled).length}/
-              {sections.length || sectionTypes.length} active
+              {sections.length || sectionTypes.length}{" "}
+              <Localized text="active" />{" "}
             </span>
           </div>
           {sections.length ? (
@@ -1038,7 +1133,9 @@ function EpkStudio({
         <section className={`epk-preview ${theme}`}>
           <div className="preview-top">
             <Pill value={epk?.status ?? "DRAFT"} />
-            <span>PUBLIC EPK</span>
+            <span>
+              <Localized text="PUBLIC EPK" />
+            </span>
           </div>
           <div className="preview-copy">
             <p>{dj?.primary_city?.toUpperCase() ?? "RIYADH"}</p>
@@ -1054,8 +1151,12 @@ function EpkStudio({
           </div>
         </section>
         <section className="card template-panel">
-          <p className="eyebrow">PRESENTATION</p>
-          <h3>Choose a template</h3>
+          <p className="eyebrow">
+            <Localized text="PRESENTATION" />
+          </p>
+          <h3>
+            <Localized text="Choose a template" />
+          </h3>
           {templates.map((item) => (
             <button
               key={item.id}
@@ -1068,7 +1169,7 @@ function EpkStudio({
           ))}
           {epk && (
             <button className="button primary full" onClick={onPublish}>
-              Publish EPK
+              <Localized text="Publish EPK" />{" "}
             </button>
           )}
           {epk?.status === "PUBLISHED" && (
@@ -1078,11 +1179,16 @@ function EpkStudio({
               target="_blank"
               rel="noreferrer"
             >
-              Open live EPK
+              <Localized text="Open live EPK" />{" "}
+            </a>
+          )}
+          {epk?.status === "PUBLISHED" && (
+            <a className="button full" href={`/api/v1/epks/${epk.slug}/pdf`}>
+              {t("pdf.download")}
             </a>
           )}
           <p className="helper">
-            Publishing creates an immutable publication version in the database.
+            <Localized text="Publishing creates an immutable publication version in the database." />{" "}
           </p>
         </section>
       </div>
@@ -1098,10 +1204,18 @@ function Marketplace({ opportunities, dj, applications, onApply }: any) {
         description="Published opportunities are searchable and applications move through validated states."
       />
       <div className="filter-row">
-        <span>All genres</span>
-        <span>Saudi Arabia</span>
-        <span>Available dates</span>
-        <span>Verified promoters</span>
+        <span>
+          <Localized text="All genres" />
+        </span>
+        <span>
+          <Localized text="Saudi Arabia" />
+        </span>
+        <span>
+          <Localized text="Available dates" />
+        </span>
+        <span>
+          <Localized text="Verified promoters" />
+        </span>
       </div>
       <div className="card-grid">
         {opportunities.filter((o: Opportunity) => o.status === "PUBLISHED")
@@ -1208,14 +1322,18 @@ function PromoterDesk({
             onClick={onCreateOrganization}
             disabled={busy}
           >
-            Create organization
+            <Localized text="Create organization" />{" "}
           </button>
         </section>
       ) : (
         <div className="two-column">
           <section className="card form-card">
-            <p className="eyebrow">PUBLISH OPPORTUNITY</p>
-            <h3>Bring artists into the pipeline.</h3>
+            <p className="eyebrow">
+              <Localized text="PUBLISH OPPORTUNITY" />
+            </p>
+            <h3>
+              <Localized text="Bring artists into the pipeline." />
+            </h3>
             <Field label="Opportunity title">
               <input
                 value={form.opportunityTitle}
@@ -1248,12 +1366,14 @@ function PromoterDesk({
               onClick={onCreateOpportunity}
               disabled={busy}
             >
-              Publish opportunity
+              <Localized text="Publish opportunity" />{" "}
             </button>
           </section>
           <section className="card">
             <div className="card-title">
-              <h3>Your listings</h3>
+              <h3>
+                <Localized text="Your listings" />
+              </h3>
               <span>{ownedOpportunities.length}</span>
             </div>
             {ownedOpportunities.length ? (
@@ -1309,7 +1429,9 @@ function EventsDesk({
         <>
           <div className="event-layout">
             <section className="card form-card">
-              <p className="eyebrow">01 / EVENT</p>
+              <p className="eyebrow">
+                <Localized text="01 / EVENT" />
+              </p>
               <Field label="Event title">
                 <input
                   value={form.eventTitle}
@@ -1340,17 +1462,21 @@ function EventsDesk({
                 onClick={onCreateEvent}
                 disabled={busy}
               >
-                Publish event
+                <Localized text="Publish event" />{" "}
               </button>
             </section>
             <section className="card form-card">
-              <p className="eyebrow">02 / TICKET TYPE</p>
+              <p className="eyebrow">
+                <Localized text="02 / TICKET TYPE" />
+              </p>
               <Field label="Event">
                 <select
                   value={selectedEventId}
                   onChange={(e) => setSelectedEventId(e.target.value)}
                 >
-                  <option value="">Select event</option>
+                  <option value="">
+                    <Localized text="Select event" />
+                  </option>
                   {ownedEvents.map((event: EventItem) => (
                     <option value={event.id} key={event.id}>
                       {event.title}
@@ -1397,14 +1523,16 @@ function EventsDesk({
           </div>
           <section className="card table-card">
             <div className="card-title">
-              <h3>Ticket inventory</h3>
-              <span>Transaction-protected</span>
+              <h3>
+                <Localized text="Ticket inventory" />
+              </h3>
+              <span>
+                <Localized text="Transaction-protected" />
+              </span>
             </div>
             {!paymentProviderConfigured && (
               <div className="module-note">
-                Paid ticket checkout is intentionally disabled until Cuelance
-                connects a verified payment provider. Complimentary tickets
-                remain available and are issued as real credentials.
+                <Localized text="Paid ticket checkout is intentionally disabled until Cuelance connects a verified payment provider. Complimentary tickets remain available and are issued as real credentials." />{" "}
               </div>
             )}
             {ticketTypes.length ? (
@@ -1413,7 +1541,8 @@ function EventsDesk({
                   <div>
                     <b>{ticket.name}</b>
                     <small>
-                      {ticket.quantity_sold}/{ticket.capacity} issued ·{" "}
+                      {ticket.quantity_sold}/{ticket.capacity}{" "}
+                      <Localized text="issued ·" />{" "}
                       {currency(ticket.price, ticket.currency)}
                     </small>
                   </div>
@@ -1424,10 +1553,12 @@ function EventsDesk({
                         className="button small"
                         onClick={() => onTestTicket(ticket)}
                       >
-                        Issue complimentary ticket
+                        <Localized text="Issue complimentary ticket" />{" "}
                       </button>
                     ) : (
-                      <span className="pill">Checkout pending provider</span>
+                      <span className="pill">
+                        <Localized text="Checkout pending provider" />
+                      </span>
                     )}
                   </div>
                 </div>
@@ -1463,8 +1594,12 @@ function CommunityDesk({
       {org && (
         <section className="card create-strip">
           <div>
-            <p className="eyebrow">NEW COMMUNITY</p>
-            <h3>Build a member layer around your events.</h3>
+            <p className="eyebrow">
+              <Localized text="NEW COMMUNITY" />
+            </p>
+            <h3>
+              <Localized text="Build a member layer around your events." />
+            </h3>
           </div>
           <input
             value={form.communityName}
@@ -1474,7 +1609,7 @@ function CommunityDesk({
             placeholder="e.g. After Dark Residents"
           />
           <button className="button primary" onClick={onCreate} disabled={busy}>
-            Create
+            <Localized text="Create" />{" "}
           </button>
         </section>
       )}
@@ -1485,9 +1620,11 @@ function CommunityDesk({
               <Pill value={community.membership_mode} />
               <h3>{community.name}</h3>
               <p>{community.description}</p>
-              <small>Managed status: {community.status}</small>
+              <small>
+                <Localized text="Managed status:" /> {community.status}
+              </small>
               <button className="button full" onClick={() => onJoin(community)}>
-                Request membership
+                <Localized text="Request membership" />{" "}
               </button>
             </article>
           ))
@@ -1504,6 +1641,7 @@ function CommunityDesk({
   );
 }
 function GuideDesk({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
+  const { t } = useLocale();
   const guides: {
     tab: Tab;
     title: string;
@@ -1582,20 +1720,40 @@ function GuideDesk({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
         title="Run Cuelance from first profile to entry."
         description="Every action below writes to the live backend. Field-level info buttons show what to enter and an example."
       />
+      <a className="button primary" href="/guide">
+        {t("guide.full")}
+      </a>
+      <section className="card guide-start">
+        <h2>{t("guide.newTitle")}</h2>
+        <div className="actions">
+          {(["media", "ai", "wallet", "messages", "admin"] as const).map(
+            (id) => (
+              <button
+                className="button"
+                key={id}
+                onClick={() => onNavigate(id)}
+              >
+                {t(`nav.${id}`)}
+              </button>
+            ),
+          )}
+        </div>
+        <p>{t("pdf.help")}</p>
+      </section>
       <section className="guide-start card">
         <div>
-          <p className="eyebrow">RECOMMENDED FIRST RUN</p>
+          <p className="eyebrow">
+            <Localized text="RECOMMENDED FIRST RUN" />
+          </p>
           <h2>
-            Artist profile → EPK → organization → event → complimentary ticket →
-            scanner
+            <Localized text="Artist profile → EPK → organization → event → complimentary ticket → scanner" />{" "}
           </h2>
           <p>
-            Use the same demo account to explore both the artist and promoter
-            workflow.
+            <Localized text="Use the same demo account to explore both the artist and promoter workflow." />{" "}
           </p>
         </div>
         <button className="button primary" onClick={() => onNavigate("artist")}>
-          Start at artist profile
+          <Localized text="Start at artist profile" />{" "}
         </button>
       </section>
       <div className="guide-grid">
@@ -1607,7 +1765,9 @@ function GuideDesk({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
             </div>
             <p>{guide.body}</p>
             <div className="guide-example">
-              <b>Try it</b>
+              <b>
+                <Localized text="Try it" />
+              </b>
               <span>{guide.example}</span>
             </div>
             <button
@@ -1620,12 +1780,11 @@ function GuideDesk({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
         ))}
       </div>
       <section className="card guide-limits">
-        <h3>Current operating boundaries</h3>
+        <h3>
+          <Localized text="Current operating boundaries" />
+        </h3>
         <p>
-          Paid checkout is deliberately unavailable until a verified payment
-          provider is connected. Camera scanning, PDF generation, custom
-          domains, media uploads, AI writing, bilingual content, messaging and
-          the central admin CMS are not yet implemented in this build.
+          <Localized text="Paid checkout is deliberately unavailable until a verified payment provider is connected. Offline admission is not enabled. See the complete guide for camera scanning, PDF downloads, media uploads, AI writing, Arabic, messaging and administration." />{" "}
         </p>
       </section>
     </>
@@ -1656,17 +1815,21 @@ function Scanner({
             <i />
           </div>
           <span>
-            Manual credential entry is live. Camera scanning is not enabled yet.
+            <Localized text="Manual credential entry is live. Camera scanning is not enabled yet." />{" "}
           </span>
         </div>
         <section className="card scanner-control">
-          <p className="eyebrow">VALIDATE CREDENTIAL</p>
+          <p className="eyebrow">
+            <Localized text="VALIDATE CREDENTIAL" />
+          </p>
           <Field label="Event">
             <select
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
             >
-              <option value="">Select event</option>
+              <option value="">
+                <Localized text="Select event" />
+              </option>
               {ownedEvents.map((event: EventItem) => (
                 <option key={event.id} value={event.id}>
                   {event.title}
@@ -1688,11 +1851,10 @@ function Scanner({
             onClick={onValidate}
             disabled={busy}
           >
-            Validate entry
+            <Localized text="Validate entry" />{" "}
           </button>
           <p className="helper">
-            Valid → green · already used → amber · invalid/revoked/wrong event →
-            red.
+            <Localized text="Valid → green · already used → amber · invalid/revoked/wrong event → red." />{" "}
           </p>
         </section>
       </section>
@@ -1712,16 +1874,17 @@ function PageHeading({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  const tr = useLegacy();
   return (
     <header className="page-heading">
       <div>
-        <p className="eyebrow">{eyebrow}</p>
-        <h1>{title}</h1>
-        <p>{description}</p>
+        <p className="eyebrow">{tr(eyebrow)}</p>
+        <h1>{tr(title)}</h1>
+        <p>{tr(description)}</p>
       </div>
       {actionLabel && (
         <button className="button primary" onClick={onAction}>
-          {actionLabel}
+          {tr(actionLabel)}
         </button>
       )}
     </header>
@@ -1813,24 +1976,31 @@ function Field({
   wide?: boolean;
 }) {
   const help = fieldHelp[label];
+  const id = useId();
+  const tr = useLegacy();
   return (
-    <label className={wide ? "field wide" : "field"}>
+    <div className={wide ? "field wide" : "field"}>
       <span>
-        {label}
-        {help && (
-          <button
-            className="tooltip"
-            type="button"
-            aria-label={`Help for ${label}`}
-            data-tip={`${help.tip} ${help.example}`}
-          >
-            i
-          </button>
-        )}
+        <label htmlFor={id}>{tr(label)}</label>
+        {help && <Help text={`${tr(help.tip)} ${tr(help.example)}`} />}
       </span>
-      {children}
-      {help && <small className="field-example">{help.example}</small>}
-    </label>
+      {isValidElement(children)
+        ? cloneElement(
+            children as React.ReactElement<{
+              id: string;
+              placeholder?: string;
+            }>,
+            {
+              id,
+              placeholder: (children.props as { placeholder?: string })
+                .placeholder
+                ? tr((children.props as { placeholder: string }).placeholder)
+                : undefined,
+            },
+          )
+        : children}
+      {help && <small className="field-example">{tr(help.example)}</small>}
+    </div>
   );
 }
 function Pill({ value }: { value: string }) {
@@ -1859,10 +2029,11 @@ function Metric({
   );
 }
 function Empty({ title, body }: { title: string; body: string }) {
+  const tr = useLegacy();
   return (
     <div className="empty">
-      <b>{title}</b>
-      <p>{body}</p>
+      <b>{tr(title)}</b>
+      <p>{tr(body)}</p>
     </div>
   );
 }
