@@ -6,19 +6,19 @@ const workflows = [
     ar: "١. ملف الفنان والملف الصحفي",
     enSteps: [
       "Open Artist profile. Enter stage name, genre, city, country and a factual biography. Save the profile.",
-      "Open EPK studio. Choose Underground, Minimal, Festival, Luxury or Experimental. Save the draft and enable the sections you need.",
-      "Use Media library to attach files. Return to EPK studio and Publish EPK. Open live EPK to confirm the published version.",
+      "Open Press-kit studio. Choose Underground, Minimal, Festival, Luxury or Experimental. Save the shell, then complete Cover, Artist profile, Sound + releases, Live performance, Buyer gets, Credentials, Media kit, Contact and Booking formats.",
+      "Use Media library to upload assets and choose the EPK target section before pressing Attach. Return to Press-kit studio, confirm the section content, then Publish EPK and open the live version.",
       "Changing your profile or draft does not update the live snapshot until you publish again.",
     ],
     arSteps: [
       "افتح ملف الفنان وأدخل الاسم الفني والنوع الموسيقي والمدينة والدولة ونبذة موثوقة. احفظ الملف.",
-      "افتح استوديو الملف الصحفي واختر أحد القوالب الخمسة. احفظ المسودة وفعّل الأقسام المطلوبة.",
-      "استخدم مكتبة الوسائط لإرفاق الملفات. عد للاستوديو وانشر الملف الصحفي ثم افتح النسخة المنشورة للتحقق.",
+      "افتح استوديو الملف الصحفي واختر أحد القوالب الخمسة. احفظ الإطار ثم أكمل الغلاف وملف الفنان والصوت والإصدارات والأداء الحي وما يحصل عليه المشتري والاعتمادات وحزمة الوسائط وروابط التواصل وصيغ الحجز.",
+      "استخدم مكتبة الوسائط وارفع الملفات واختر القسم المستهدف قبل الإرفاق. عد للاستوديو وراجع المحتوى ثم انشر الملف وافتح النسخة العامة للتحقق.",
       "تعديل الملف أو المسودة لا يغير النسخة العامة حتى تنشر مجدداً.",
     ],
     example: [
-      "Example: Motata, Tech House, Riyadh, with a short factual career summary.",
-      "مثال: موتاتا، تيك هاوس، الرياض، مع ملخص قصير وموثوق للمسيرة.",
+      "Example: Motata, Riyadh / Saudi Arabia, Saudi DJ / Producer / VJ, Licensed Artist, Arabic + English, Tech House, with releases, booking formats, credentials and contact links.",
+      "مثال: موتاتا، الرياض / السعودية، DJ ومنتج وVJ، فنان مرخص، عربي + إنجليزي، تيك هاوس، مع إصدارات وصيغ حجز واعتمادات وروابط تواصل.",
     ],
   },
   {
@@ -48,14 +48,14 @@ const workflows = [
       "Open Media library and choose JPG, PNG, WebP, GIF, MP4, WebM, MP3, WAV, OGG, PDF or ZIP. Maximum file size: 25 MB.",
       "Add a useful description or image alt text. Upload securely. The file is private by default and validated by the server.",
       "Open temporary link previews your private asset. The link expires after 60 seconds; open a new one when needed.",
-      "Add to EPK asks permission to make the asset public, then attaches it to Gallery, Music, Video or Downloads. Publish the EPK to update visitors’ view.",
+      "Choose the EPK target section, then Add to EPK asks permission to make the asset public and attaches it there. Use Gallery for photos, Sound + releases for audio/covers, Credentials for licenses, Downloads for riders/ZIP files and Contact for QR/media assets. Publish the EPK to update visitors’ view.",
       "Make private withdraws public access. Previously issued temporary links may remain valid until their short expiry.",
     ],
     arSteps: [
       "افتح مكتبة الوسائط واختر ملفاً من الصيغ المدعومة، بحد أقصى 25 ميغابايت.",
       "أضف وصفاً مفيداً أو نصاً بديلاً للصورة ثم ارفع بأمان. الملف خاص افتراضياً ويتحقق الخادم من محتواه.",
       "فتح رابط مؤقت يعاين ملفك الخاص. ينتهي الرابط بعد 60 ثانية؛ افتح رابطاً جديداً عند الحاجة.",
-      "إضافة للملف الصحفي تطلب الإذن بإتاحة الملف للعامة، ثم تضيفه للمعرض أو الموسيقى أو الفيديو أو التنزيلات. انشر الملف الصحفي لتحديث العرض العام.",
+      "اختر القسم المستهدف ثم إضافة للملف الصحفي تطلب الإذن بإتاحة الملف للعامة وتضيفه هناك. استخدم المعرض للصور، الصوت والإصدارات للأغاني والأغلفة، الاعتمادات للرخص، التنزيلات للرايدر والملفات المضغوطة، والتواصل للأصول الخاصة بالتواصل. انشر الملف لتحديث العرض العام.",
       "جعل الملف خاصاً يسحب الوصول العام. قد تعمل الروابط المؤقتة السابقة حتى انتهاء مدتها القصيرة.",
     ],
     example: [
@@ -69,16 +69,16 @@ const workflows = [
     enSteps: [
       "Save and publish the EPK version you want to share.",
       "Open the live EPK and choose Download published PDF. The server creates an A4 document from the published snapshot.",
-      "The PDF includes artist text, enabled public section content, media links, publication version and a QR link to the live EPK. Interactive media is linked rather than embedded.",
+      "The PDF uses the rich press-kit layout: dark editorial cover, section cards, badges, active links, QR link, downloadable media links and public image assets where possible. Interactive video/audio remain linked.",
     ],
     arSteps: [
       "احفظ وانشر نسخة الملف الصحفي التي تريد مشاركتها.",
       "افتح الملف المنشور واختر تنزيل PDF المنشور. ينشئ الخادم مستند A4 من النسخة المنشورة.",
-      "يتضمن PDF نص الفنان ومحتوى الأقسام العامة المفعلة وروابط الوسائط ورقم النسخة ورمز QR للملف العام. تُربط الوسائط التفاعلية بدلاً من تضمينها.",
+      "يستخدم PDF تخطيطاً صحفياً غنياً: غلاف داكن، بطاقات أقسام، شارات، روابط نشطة، رمز QR، روابط تنزيل، وصور عامة مرفوعة حيثما أمكن. تبقى الفيديوهات والصوتيات كرابط.",
     ],
     example: [
-      "Draft changes must be published before they appear in the download.",
-      "يجب نشر تغييرات المسودة قبل ظهورها في التنزيل.",
+      "Draft changes and attached assets must be published before they appear in the PDF download.",
+      "يجب نشر تغييرات المسودة والوسائط المرفقة قبل ظهورها في تنزيل PDF.",
     ],
   },
   {

@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { LanguageSwitch, useLocale } from "@/modules/localization/ui/provider";
+import { normalizeContent, richSectionLabels, safeLinks, type RichSectionContent } from "@/modules/epk/application/rich-content";
 import "./public.css";
 
 type PublicArtist = {
@@ -28,7 +29,7 @@ type PublicSection = {
   enabled: boolean;
   sort_order: number;
   visibility: string;
-  content_json?: { heading?: string; text?: string; asset_ids?: string[] };
+  content_json?: RichSectionContent;
 };
 
 type PublicEpk = {
@@ -43,30 +44,10 @@ type PublicEpk = {
   epk_sections: PublicSection[];
 };
 
-const sectionLabel: Record<string, string> = {
-  hero: "Artist profile",
-  bio: "Biography",
-  music: "Music",
-  video: "Video",
-  gallery: "Gallery",
-  highlights: "Highlights",
-  press: "Press",
-  events: "Events",
-  social: "Social",
-  downloads: "Downloads",
-  technical_rider: "Technical rider",
-  booking: "Booking",
-  custom_content: "More",
-};
-
-function isSafeExternalUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
-  } catch {
-    return false;
-  }
+function sectionLabel(type: string) {
+  return richSectionLabels[type] || type.replace(/_/g, " ");
 }
+
 
 export default function PublicEpkPage() {
   const { t, locale } = useLocale();
@@ -207,9 +188,13 @@ export default function PublicEpkPage() {
       </main>
     );
 
-  const socialLinks = Object.entries(artist.links ?? {}).filter(
-    ([, url]) => typeof url === "string" && isSafeExternalUrl(url),
-  );
+  const heroSection = visibleSections.find((section) => section.type === "hero");
+  const heroContent = normalizeContent(heroSection?.content_json);
+  const contactContent = normalizeContent(visibleSections.find((section) => section.type === "social")?.content_json);
+  const socialLinks = [
+    ...Object.entries(artist.links ?? {}).map(([label, url]) => ({ label, url })),
+    ...safeLinks(contactContent.links),
+  ].filter((link, index, all) => typeof link.url === "string" && all.findIndex((item) => item.url === link.url) === index);
   const heroImage = artist.hero_url || artist.profile_image_url;
 
   return (
@@ -234,26 +219,22 @@ export default function PublicEpkPage() {
       <section className="public-epk-hero">
         <div className="public-epk-copy">
           <p className="public-kicker">
-            {[artist.primary_city, artist.country]
-              .filter(Boolean)
-              .join(" · ") || "Cuelance artist"}
+            {heroContent.kicker || [artist.primary_city, artist.country].filter(Boolean).join(" · ") || "Cuelance artist"}
           </p>
-          <h1>{artist.stage_name}</h1>
+          <h1>{heroContent.heading || artist.stage_name}</h1>
           <p className="public-bio">
-            {artist.short_bio ||
-              epk.seo_description ||
-              "Artist profile published on Cuelance."}
+            {heroContent.subheading || heroContent.text || artist.short_bio || epk.seo_description || "Artist profile published on Cuelance."}
           </p>
           <div className="public-tags">
-            {(artist.genres ?? []).map((genre) => (
+            {[...(heroContent.badges || []), ...(artist.genres ?? [])].map((genre) => (
               <span key={genre}>{genre}</span>
             ))}
           </div>
           {socialLinks.length > 0 && (
             <div className="public-links">
-              {socialLinks.map(([label, url]) => (
-                <a key={label} href={url} target="_blank" rel="noreferrer">
-                  {label}
+              {socialLinks.map((link) => (
+                <a key={`${link.label}-${link.url}`} href={link.url} target="_blank" rel="noreferrer">
+                  {link.label}
                 </a>
               ))}
             </div>
@@ -291,7 +272,7 @@ export default function PublicEpkPage() {
           <p>
             {visibleSections
               .filter((section) => section.type !== "booking")
-              .map((section) => sectionLabel[section.type] ?? section.type)
+              .map((section) => sectionLabel(section.type))
               .join(" · ") || "Artist profile"}
           </p>
           {artist.languages?.length ? (
@@ -398,23 +379,9 @@ export default function PublicEpkPage() {
         </section>
       )}
       {visibleSections
-        .filter(
-          (s) => s.content_json?.text || s.content_json?.asset_ids?.length,
-        )
+        .filter((section) => !["hero", "booking"].includes(section.type))
         .map((section) => (
-          <section className="public-media-section" key={section.id}>
-            <h2>
-              {section.content_json?.heading ||
-                sectionLabel[section.type] ||
-                section.type}
-            </h2>
-            <p dir="auto">{section.content_json?.text}</p>
-            <div className="public-media-grid">
-              {section.content_json?.asset_ids?.map((id) => (
-                <PublicAsset id={id} key={id} />
-              ))}
-            </div>
-          </section>
+          <PublicRichSection section={section} key={section.id} />
         ))}
       <footer className="public-epk-footer">
         <span>
@@ -429,6 +396,49 @@ export default function PublicEpkPage() {
     </main>
   );
 }
+function PublicRichSection({ section }: { section: PublicSection }) {
+  const content = normalizeContent(section.content_json);
+  const hasBody = content.heading || content.text || content.entries?.length || content.links?.length || content.asset_ids?.length || content.badges?.length;
+  if (!hasBody) return null;
+  return (
+    <section className={`public-rich-section public-rich-${section.type}`}>
+      <div className="public-section-heading">
+        <p className="public-kicker">{content.kicker || sectionLabel(section.type)}</p>
+        <h2>{content.heading || sectionLabel(section.type)}</h2>
+        {content.subheading && <p className="public-section-subheading">{content.subheading}</p>}
+        {content.text && <p dir="auto">{content.text}</p>}
+        {content.badges?.length ? (
+          <div className="public-tags">{content.badges.map((badge) => <span key={badge}>{badge}</span>)}</div>
+        ) : null}
+      </div>
+      {content.entries?.length ? (
+        <div className="public-entry-grid">
+          {content.entries.map((entry, index) => (
+            <article key={`${entry.title}-${index}`}>
+              {entry.meta && <p className="public-entry-meta">{entry.meta}</p>}
+              <h3>{entry.url ? <a href={entry.url} target="_blank" rel="noreferrer">{entry.title}</a> : entry.title}</h3>
+              {entry.description && <p>{entry.description}</p>}
+            </article>
+          ))}
+        </div>
+      ) : null}
+      {content.links?.length ? (
+        <div className="public-link-grid">
+          {safeLinks(content.links).map((link) => (
+            <a href={link.url} key={`${link.label}-${link.url}`} target="_blank" rel="noreferrer">{link.label || link.url}</a>
+          ))}
+        </div>
+      ) : null}
+      {content.asset_ids?.length ? (
+        <div className="public-media-grid">
+          {content.asset_ids.map((id) => <PublicAsset id={id} key={id} />)}
+        </div>
+      ) : null}
+      {content.callout && <p className="public-callout">{content.callout}</p>}
+    </section>
+  );
+}
+
 function PublicAsset({ id }: { id: string }) {
   const [asset, setAsset] = useState<{
     kind: string;

@@ -9,11 +9,11 @@ Release note: this guide describes the new implementation. Deployment and device
 ## 1. Artist profile and EPK
 
 1. Open Artist profile. Enter stage name, genre, city, country and a factual biography. Save the profile.
-2. Open EPK studio. Choose Underground, Minimal, Festival, Luxury or Experimental. Save the draft and enable the sections you need.
-3. Use Media library to attach files. Return to EPK studio and Publish EPK. Open live EPK to confirm the published version.
+2. Open Press-kit studio. Choose Underground, Minimal, Festival, Luxury or Experimental. Save the shell, then complete Cover, Artist profile, Sound + releases, Live performance, Buyer gets, Credentials, Media kit, Contact and Booking formats.
+3. Use Media library to upload assets and choose the EPK target section before pressing Attach. Return to Press-kit studio, confirm the section content, then Publish EPK and open the live version.
 4. Changing your profile or draft does not update the live snapshot until you publish again.
 
-Example: Motata, Tech House, Riyadh, with a short factual career summary.
+Example: Motata, Riyadh / Saudi Arabia, Saudi DJ / Producer / VJ, Licensed Artist, Arabic + English, Tech House, with releases, booking formats, credentials and contact links.
 
 ## 2. AI writing
 
@@ -29,7 +29,7 @@ Example: “Based in Riyadh; house and disco sets; Arabic and English; five year
 1. Open Media library and choose JPG, PNG, WebP, GIF, MP4, WebM, MP3, WAV, OGG, PDF or ZIP. Maximum file size: 25 MB.
 2. Add a useful description or image alt text. Upload securely. The file is private by default and validated by the server.
 3. Open temporary link previews your private asset. The link expires after 60 seconds; open a new one when needed.
-4. Add to EPK asks permission to make the asset public, then attaches it to Gallery, Music, Video or Downloads. Publish the EPK to update visitors’ view.
+4. Choose the EPK target section, then Add to EPK asks permission to make the asset public and attaches it there. Use Gallery for photos, Sound + releases for audio/covers, Credentials for licenses, Downloads for riders/ZIP files and Contact for QR/media assets. Publish the EPK to update visitors’ view.
 5. Make private withdraws public access. Previously issued temporary links may remain valid until their short expiry.
 
 Example: press-photo.jpg with alt text “Motata performing on stage in Riyadh.”
@@ -38,9 +38,9 @@ Example: press-photo.jpg with alt text “Motata performing on stage in Riyadh.�
 
 1. Save and publish the EPK version you want to share.
 2. Open the live EPK and choose Download published PDF. The server creates an A4 document from the published snapshot.
-3. The PDF includes artist text, enabled public section content, media links, publication version and a QR link to the live EPK. Interactive media is linked rather than embedded.
+3. The PDF uses the rich press-kit layout: dark editorial cover, section cards, badges, active links, QR link, downloadable media links and public image assets where possible. Interactive video/audio remain linked.
 
-Draft changes must be published before they appear in the download.
+Draft changes and attached assets must be published before they appear in the PDF download.
 
 ## 5. Marketplace, promoter and booking
 
@@ -114,11 +114,11 @@ Payments, offline admission, and automatic email delivery must not be treated as
 ## ١. ملف الفنان والملف الصحفي
 
 1. افتح ملف الفنان وأدخل الاسم الفني والنوع الموسيقي والمدينة والدولة ونبذة موثوقة. احفظ الملف.
-2. افتح استوديو الملف الصحفي واختر أحد القوالب الخمسة. احفظ المسودة وفعّل الأقسام المطلوبة.
-3. استخدم مكتبة الوسائط لإرفاق الملفات. عد للاستوديو وانشر الملف الصحفي ثم افتح النسخة المنشورة للتحقق.
+2. افتح استوديو الملف الصحفي واختر أحد القوالب الخمسة. احفظ الإطار ثم أكمل الغلاف وملف الفنان والصوت والإصدارات والأداء الحي وما يحصل عليه المشتري والاعتمادات وحزمة الوسائط وروابط التواصل وصيغ الحجز.
+3. استخدم مكتبة الوسائط وارفع الملفات واختر القسم المستهدف قبل الإرفاق. عد للاستوديو وراجع المحتوى ثم انشر الملف وافتح النسخة العامة للتحقق.
 4. تعديل الملف أو المسودة لا يغير النسخة العامة حتى تنشر مجدداً.
 
-مثال: موتاتا، تيك هاوس، الرياض، مع ملخص قصير وموثوق للمسيرة.
+مثال: موتاتا، الرياض / السعودية، DJ ومنتج وVJ، فنان مرخص، عربي + إنجليزي، تيك هاوس، مع إصدارات وصيغ حجز واعتمادات وروابط تواصل.
 
 ## ٢. الكتابة بالذكاء الاصطناعي
 
@@ -134,7 +134,7 @@ Payments, offline admission, and automatic email delivery must not be treated as
 1. افتح مكتبة الوسائط واختر ملفاً من الصيغ المدعومة، بحد أقصى 25 ميغابايت.
 2. أضف وصفاً مفيداً أو نصاً بديلاً للصورة ثم ارفع بأمان. الملف خاص افتراضياً ويتحقق الخادم من محتواه.
 3. فتح رابط مؤقت يعاين ملفك الخاص. ينتهي الرابط بعد 60 ثانية؛ افتح رابطاً جديداً عند الحاجة.
-4. إضافة للملف الصحفي تطلب الإذن بإتاحة الملف للعامة، ثم تضيفه للمعرض أو الموسيقى أو الفيديو أو التنزيلات. انشر الملف الصحفي لتحديث العرض العام.
+4. اختر القسم المستهدف ثم إضافة للملف الصحفي تطلب الإذن بإتاحة الملف للعامة وتضيفه هناك. استخدم المعرض للصور، الصوت والإصدارات للأغاني والأغلفة، الاعتمادات للرخص، التنزيلات للرايدر والملفات المضغوطة، والتواصل للأصول الخاصة بالتواصل. انشر الملف لتحديث العرض العام.
 5. جعل الملف خاصاً يسحب الوصول العام. قد تعمل الروابط المؤقتة السابقة حتى انتهاء مدتها القصيرة.
 
 مثال: press-photo.jpg بوصف «موتاتا يقدم عرضاً على المسرح بالرياض».
@@ -143,9 +143,9 @@ Payments, offline admission, and automatic email delivery must not be treated as
 
 1. احفظ وانشر نسخة الملف الصحفي التي تريد مشاركتها.
 2. افتح الملف المنشور واختر تنزيل PDF المنشور. ينشئ الخادم مستند A4 من النسخة المنشورة.
-3. يتضمن PDF نص الفنان ومحتوى الأقسام العامة المفعلة وروابط الوسائط ورقم النسخة ورمز QR للملف العام. تُربط الوسائط التفاعلية بدلاً من تضمينها.
+3. يستخدم PDF تخطيطاً صحفياً غنياً: غلاف داكن، بطاقات أقسام، شارات، روابط نشطة، رمز QR، روابط تنزيل، وصور عامة مرفوعة حيثما أمكن. تبقى الفيديوهات والصوتيات كرابط.
 
-يجب نشر تغييرات المسودة قبل ظهورها في التنزيل.
+يجب نشر تغييرات المسودة والوسائط المرفقة قبل ظهورها في تنزيل PDF.
 
 ## ٥. الفرص والمروج والحجز
 

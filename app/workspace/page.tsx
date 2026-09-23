@@ -11,6 +11,7 @@ import {
   isValidElement,
 } from "react";
 import { Help } from "@/modules/ui/guided";
+import { defaultSectionContent, normalizeContent, richSectionGuidance, richSectionLabels, type RichEntry, type RichLink, type RichSectionContent } from "@/modules/epk/application/rich-content";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { LanguageSwitch, useLocale } from "@/modules/localization/ui/provider";
@@ -180,7 +181,7 @@ export default function AccountWorkspace() {
   const [org, setOrg] = useState<Org | null>(null);
   const [epk, setEpk] = useState<Epk | null>(null);
   const [sections, setSections] = useState<
-    { id: string; type: string; enabled: boolean; sort_order: number }[]
+    { id: string; type: string; enabled: boolean; visibility?: string; sort_order: number; content_json?: RichSectionContent }[]
   >([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
@@ -293,7 +294,7 @@ export default function AccountWorkspace() {
         setTheme((currentEpk as Epk).template_id);
         const { data: currentSections } = await supabase
           .from("epk_sections")
-          .select("id,type,enabled,sort_order")
+          .select("id,type,enabled,visibility,sort_order,content_json")
           .eq("epk_id", (currentEpk as Epk).id)
           .order("sort_order");
         setSections(currentSections ?? []);
@@ -451,10 +452,18 @@ export default function AccountWorkspace() {
         sectionTypes.map((type, index) => ({
           epk_id: newEpk.id,
           type,
-          enabled: ["hero", "bio", "music", "gallery", "booking"].includes(
+          enabled: ["hero", "bio", "music", "gallery", "booking", "press", "social", "downloads"].includes(
             type,
           ),
           sort_order: index,
+          visibility: "PUBLIC",
+          content_json: defaultSectionContent(type, {
+            stageName: dj.stage_name,
+            city: dj.primary_city ?? form.city,
+            country: dj.country ?? form.country,
+            genre: dj.genres?.[0] ?? form.genre,
+            bio: dj.short_bio ?? form.bio,
+          }),
         })),
       );
     }
@@ -478,6 +487,14 @@ export default function AccountWorkspace() {
       .update({ enabled: !section.enabled })
       .eq("id", section.id);
     tell(error ? error.message : "Section updated.");
+    await load();
+  }
+  async function updateSectionContent(sectionId: string, content: RichSectionContent) {
+    const { error } = await supabase
+      .from("epk_sections")
+      .update({ content_json: content, enabled: true, visibility: "PUBLIC" })
+      .eq("id", sectionId);
+    tell(error ? error.message : "EPK section saved.");
     await load();
   }
   async function createOrganization() {
@@ -838,6 +855,7 @@ export default function AccountWorkspace() {
               onSave={saveEpk}
               onPublish={publishEpk}
               onToggle={toggleSection}
+              onSectionSave={updateSectionContent}
             />
           )}
           {tab === "marketplace" && (
@@ -887,7 +905,7 @@ export default function AccountWorkspace() {
           )}
           {tab === "scanner" && <CameraScanner />}
           {tab === "wallet" && <Wallet />}
-          {tab === "media" && <MediaLibrary epkId={epk?.id} />}
+          {tab === "media" && <MediaLibrary epkId={epk?.id} onAttached={load} />}
           {tab === "ai" && (
             <Writer
               initial={locale === "ar" ? form.bioAr : form.bio}
@@ -1085,111 +1103,134 @@ function EpkStudio({
   onSave,
   onPublish,
   onToggle,
+  onSectionSave,
 }: any) {
   const selected = templates.find((item) => item.id === theme)!;
   const { t } = useLocale();
+  const [selectedSectionId, setSelectedSectionId] = useState<string>("");
+  const [draft, setDraft] = useState<RichSectionContent>({});
+  const orderedSections = [...sections].sort((a: any, b: any) => a.sort_order - b.sort_order);
+  const selectedSection = orderedSections.find((section: any) => section.id === selectedSectionId) || orderedSections[0];
+  useEffect(() => {
+    if (!selectedSection) return;
+    setSelectedSectionId(selectedSection.id);
+    setDraft(normalizeContent(selectedSection.content_json || defaultSectionContent(selectedSection.type, {
+      stageName: dj?.stage_name,
+      city: dj?.primary_city,
+      country: dj?.country,
+      genre: dj?.genres?.[0],
+      bio: dj?.short_bio,
+    })));
+  }, [selectedSection?.id]);
+  const setDraftField = (key: keyof RichSectionContent, value: any) =>
+    setDraft((current) => ({ ...current, [key]: value }));
+  const parseList = (value: string) => value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
+  const parseLinks = (value: string): RichLink[] =>
+    value.split("\n").map((line) => {
+      const [label, ...rest] = line.split("|");
+      return { label: (label || "").trim(), url: rest.join("|").trim() };
+    }).filter((link) => link.label || link.url);
+  const parseEntries = (value: string): RichEntry[] =>
+    value.split("\n").map((line) => {
+      const [title, description, meta, url] = line.split("|").map((item) => item?.trim() || "");
+      return { title, description, meta, url };
+    }).filter((entry) => entry.title || entry.description);
+  const linksText = (draft.links || []).map((link) => `${link.label || ""}|${link.url || ""}`).join("\n");
+  const entriesText = (draft.entries || []).map((entry) => `${entry.title || ""}|${entry.description || ""}|${entry.meta || ""}|${entry.url || ""}`).join("\n");
   return (
     <>
       <PageHeading
         eyebrow="EPK MODULE"
-        title="EPK studio"
-        description="Content is stored separately from presentation, so templates can evolve without losing the artist record."
-        actionLabel={busy ? "Saving…" : epk ? "Save EPK" : "Create EPK"}
+        title="Press-kit studio"
+        description="Build the public EPK and PDF from the same saved sections: cover, profile, sound, releases, booking formats, credentials, downloads and contact links."
+        actionLabel={busy ? "Saving…" : epk ? "Save EPK shell" : "Create EPK"}
         onAction={onSave}
       />
-      <div className="epk-layout">
+      <div className="epk-layout rich-epk-layout">
         <section className="card section-panel">
           <div className="card-title">
-            <h3>
-              <Localized text="Sections" />
-            </h3>
-            <span>
-              {sections.filter((s: any) => s.enabled).length}/
-              {sections.length || sectionTypes.length}{" "}
-              <Localized text="active" />{" "}
-            </span>
+            <h3><Localized text="Workflow sections" /></h3>
+            <span>{orderedSections.filter((s: any) => s.enabled).length}/{orderedSections.length || sectionTypes.length} <Localized text="active" /></span>
           </div>
-          {sections.length ? (
-            sections.map((section: any) => (
-              <button
-                className="section-toggle"
-                onClick={() => onToggle(section)}
-                key={section.id}
-              >
-                <span>
-                  <i className={section.enabled ? "dot active" : "dot"} />
-                  {section.type.replace(/_/g, " ")}
-                </span>
-                <small>{section.enabled ? "On" : "Off"}</small>
-              </button>
+          {orderedSections.length ? (
+            orderedSections.map((section: any) => (
+              <div className={`section-toggle-row ${selectedSection?.id === section.id ? "selected" : ""}`} key={section.id}>
+                <button className="section-toggle" onClick={() => setSelectedSectionId(section.id)}>
+                  <span><i className={section.enabled ? "dot active" : "dot"} />{richSectionLabels[section.type] || section.type.replace(/_/g, " ")}</span>
+                  <small>{section.enabled ? "On" : "Off"}</small>
+                </button>
+                <button className="mini-action" onClick={() => onToggle(section)}>{section.enabled ? "Hide" : "Show"}</button>
+              </div>
             ))
           ) : (
-            <Empty
-              title="Create the EPK"
-              body="It will generate schema-driven sections you can control."
-            />
+            <Empty title="Create the EPK" body="It will generate rich schema-driven press-kit sections." />
+          )}
+        </section>
+        <section className="card rich-section-editor">
+          {selectedSection ? (
+            <>
+              <p className="eyebrow">{richSectionLabels[selectedSection.type] || selectedSection.type}</p>
+              <h3><Localized text="Section content" /></h3>
+              <p className="helper">{richSectionGuidance[selectedSection.type] || "Add the saved content for this public EPK section."}</p>
+              <div className="form-grid">
+                <Field label="Kicker / small label">
+                  <input value={draft.kicker || ""} onChange={(e) => setDraftField("kicker", e.target.value)} placeholder="ARTIST PROFILE" />
+                </Field>
+                <Field label="Heading">
+                  <input value={draft.heading || ""} onChange={(e) => setDraftField("heading", e.target.value)} placeholder="Rhythm came first." />
+                </Field>
+                <Field label="Subheading">
+                  <input value={draft.subheading || ""} onChange={(e) => setDraftField("subheading", e.target.value)} placeholder="Saudi DJ / Producer / VJ" />
+                </Field>
+                <Field label="Badges">
+                  <textarea value={(draft.badges || []).join("\n")} onChange={(e) => setDraftField("badges", parseList(e.target.value))} />
+                </Field>
+                <Field label="Main copy" wide>
+                  <textarea value={draft.text || ""} onChange={(e) => setDraftField("text", e.target.value)} placeholder="Write the story, sound direction, credentials or booking note." />
+                </Field>
+                <Field label="Entries" wide>
+                  <textarea value={entriesText} onChange={(e) => setDraftField("entries", parseEntries(e.target.value))} placeholder="Club / Festival | Peak-energy DJ set | 90-120 min | https://..." />
+                </Field>
+                <Field label="Active links" wide>
+                  <textarea value={linksText} onChange={(e) => setDraftField("links", parseLinks(e.target.value))} placeholder="Apple Music | https://music.apple.com/..." />
+                </Field>
+                <Field label="Callout" wide>
+                  <input value={draft.callout || ""} onChange={(e) => setDraftField("callout", e.target.value)} placeholder="Send a structured brief and we will reply with availability." />
+                </Field>
+              </div>
+              {(draft.asset_ids || []).length > 0 && (
+                <div className="module-note">{draft.asset_ids?.length} media asset(s) attached. Manage uploads from the Media tab; attached public assets render in this section and the PDF.</div>
+              )}
+              <button className="button primary" disabled={busy} onClick={() => onSectionSave(selectedSection.id, draft)}>
+                Save this section
+              </button>
+            </>
+          ) : (
+            <Empty title="Create the EPK first" body="Then each section becomes editable with examples and guidance." />
           )}
         </section>
         <section className={`epk-preview ${theme}`}>
-          <div className="preview-top">
-            <Pill value={epk?.status ?? "DRAFT"} />
-            <span>
-              <Localized text="PUBLIC EPK" />
-            </span>
-          </div>
+          <div className="preview-top"><Pill value={epk?.status ?? "DRAFT"} /><span><Localized text="PUBLIC EPK" /></span></div>
           <div className="preview-copy">
-            <p>{dj?.primary_city?.toUpperCase() ?? "RIYADH"}</p>
-            <h1>{dj?.stage_name ?? "YOUR NAME"}</h1>
+            <p>{draft.kicker || dj?.primary_city?.toUpperCase() || "RIYADH"}</p>
+            <h1>{draft.heading || dj?.stage_name || "YOUR NAME"}</h1>
             <div className="preview-line" />
-            <span>
-              {dj?.short_bio ?? "Your artist narrative will appear here."}
-            </span>
+            <span>{draft.subheading || draft.text || dj?.short_bio || "Your artist narrative will appear here."}</span>
           </div>
-          <div className="preview-footer">
-            <span>{selected.label}</span>
-            <span>{PLATFORM_DOMAIN}</span>
-          </div>
+          <div className="preview-footer"><span>{selected.label}</span><span>{PLATFORM_DOMAIN}</span></div>
         </section>
         <section className="card template-panel">
-          <p className="eyebrow">
-            <Localized text="PRESENTATION" />
-          </p>
-          <h3>
-            <Localized text="Choose a template" />
-          </h3>
+          <p className="eyebrow"><Localized text="PRESENTATION" /></p>
+          <h3><Localized text="Choose a template" /></h3>
           {templates.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setTheme(item.id)}
-              className={`template-option ${theme === item.id ? "selected" : ""}`}
-            >
-              <b>{item.label}</b>
-              <small>{item.description}</small>
+            <button key={item.id} onClick={() => setTheme(item.id)} className={`template-option ${theme === item.id ? "selected" : ""}`}>
+              <b>{item.label}</b><small>{item.description}</small>
             </button>
           ))}
-          {epk && (
-            <button className="button primary full" onClick={onPublish}>
-              <Localized text="Publish EPK" />{" "}
-            </button>
-          )}
-          {epk?.status === "PUBLISHED" && (
-            <a
-              className="button full epk-public-link"
-              href={`/epk/${epk.slug}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Localized text="Open live EPK" />{" "}
-            </a>
-          )}
-          {epk?.status === "PUBLISHED" && (
-            <a className="button full" href={`/api/v1/epks/${epk.slug}/pdf`}>
-              {t("pdf.download")}
-            </a>
-          )}
-          <p className="helper">
-            <Localized text="Publishing creates an immutable publication version in the database." />{" "}
-          </p>
+          {epk && <button className="button primary full" onClick={onPublish}><Localized text="Publish EPK" /></button>}
+          {epk?.status === "PUBLISHED" && <a className="button full epk-public-link" href={`/epk/${epk.slug}`} target="_blank" rel="noreferrer"><Localized text="Open live EPK" /></a>}
+          {epk?.status === "PUBLISHED" && <a className="button full" href={`/api/v1/epks/${epk.slug}/pdf`}>{t("pdf.download")}</a>}
+          <p className="helper"><Localized text="Publishing creates an immutable publication version in the database." /></p>
         </section>
       </div>
     </>
