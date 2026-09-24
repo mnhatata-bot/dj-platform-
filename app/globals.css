@@ -640,6 +640,12 @@ button:disabled {
   gap: 16px;
   margin-bottom: 16px;
 }
+.three-column {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
 .table-card {
   margin-top: 16px;
 }
@@ -889,6 +895,9 @@ button:disabled {
   .card-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .three-column {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 @media (max-width: 760px) {
   .topbar {
@@ -960,6 +969,7 @@ button:disabled {
     border-bottom: 0;
   }
   .two-column,
+  .three-column,
   .event-layout,
   .scanner-shell,
   .auth-shell {

@@ -1,12 +1,11 @@
 import { database } from "@/lib/server-auth";
-import type { RichSectionContent } from "./rich-content";
 export type PublishedSection = {
   id: string;
   type: string;
   enabled: boolean;
   visibility: string;
   sort_order: number;
-  content_json?: RichSectionContent;
+  content_json?: { heading?: string; text?: string; asset_ids?: string[] };
 };
 export type PublishedDocument = {
   epk: {

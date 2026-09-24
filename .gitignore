@@ -3,3 +3,6 @@ node_modules
 .env.local
 .vercel
 .codex
+upload
+supabase/.temp
+tsconfig.tsbuildinfo

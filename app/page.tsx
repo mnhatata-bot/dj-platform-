@@ -74,7 +74,7 @@ function AccountWorkspace() {
     if (result.error) return tell(result.error.message);
     if (mode === "signup" && !result.data.session) {
       setVerificationEmail(email);
-      return tell("Verification email requested. Open its link on this device to finish signing up.");
+      return tell("If this is a new email address, check for a verification email. If you already have an account, use Sign in instead.");
     }
     tell("You are signed in.");
   }
@@ -84,7 +84,7 @@ function AccountWorkspace() {
     setBusy(true);
     const { error } = await supabase.auth.resend({ type: "signup", email: target, options: { emailRedirectTo: authRedirectUrl() } });
     setBusy(false);
-    tell(error ? error.message : "A new verification email was requested. Check spam/junk as well.");
+    tell(error ? error.message : "If this is a pending signup, a verification email was requested. Check spam/junk as well.");
   }
   async function saveArtist() { if (!user || !form.stageName.trim()) return tell("Add a stage name first."); setBusy(true); const slug = `${slugify(form.stageName)}-${user.id.slice(0, 6)}`; const payload = { user_id: user.id, stage_name: form.stageName.trim(), slug, short_bio: form.bio, long_bio: form.bio, primary_city: form.city, country: form.country, genres: [form.genre], marketplace_visibility: true }; const result = dj ? await supabase.from("dj_profiles").update(payload).eq("id", dj.id).select().single() : await supabase.from("dj_profiles").insert(payload).select().single(); setBusy(false); tell(result.error ? result.error.message : dj ? "Artist profile saved." : "Artist profile created."); await load(); }
   async function saveEpk() { if (!dj) return tell("Create your artist profile first."); setBusy(true); const payload = { dj_profile_id: dj.id, title: `${dj.stage_name} EPK`, slug: `${dj.slug}-epk`, template_id: theme, locale: "en", seo_description: form.bio }; const result = epk ? await supabase.from("epks").update(payload).eq("id", epk.id).select().single() : await supabase.from("epks").insert(payload).select().single(); if (!result.error && !epk) { const newEpk = result.data as Epk; await supabase.from("epk_sections").insert(sectionTypes.map((type, index) => ({ epk_id: newEpk.id, type, enabled: ["hero", "bio", "music", "gallery", "booking"].includes(type), sort_order: index }))); } setBusy(false); tell(result.error ? result.error.message : "EPK saved."); await load(); }

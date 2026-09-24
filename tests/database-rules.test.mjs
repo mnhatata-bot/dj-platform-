@@ -50,6 +50,8 @@ test("New module migrations enforce member/admin boundaries and validation", asy
       "20260922000400_admin_resource_commands.sql",
       "20260922000500_module_configuration_guards.sql",
       "20260922000600_public_media_metadata.sql",
+      "20260924000100_vendor_marketplaces_my_cuelance.sql",
+      "20260924000200_operational_logging.sql",
     ])
       await db.exec(
         readFileSync(
@@ -80,6 +82,10 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await db.query("insert into organization_members values($1,$2,'OWNER')", [
       org,
       admin,
+    ]);
+    await db.query("insert into organization_members values($1,$2,'MANAGER')", [
+      org,
+      a,
     ]);
     await db.query(
       "insert into dj_profiles(id,user_id,stage_name) values($1,$2,'Fixture DJ')",
@@ -234,6 +240,69 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await act(admin);
     await db.query("select admin_action('suspend',$1,'false')", [a]);
     await act(a);
+    const vendorId = (
+      await db.query(
+        "select upsert_vendor_profile($1,$2,$3,$4) as id",
+        [org, ["B2B", "B2C"], ["Sound", "Lighting"], ["Riyadh"]],
+      )
+    ).rows[0].id;
+    await db.query(
+      "insert into vendor_products(vendor_id,name,category,offering_type,price,inventory_quantity,status) values($1,'Fixture sound rental','Sound','B2B_RENTAL',2500,2,'ACTIVE')",
+      [vendorId],
+    );
+    const rfqId = (
+      await db.query(
+        "select create_vendor_rfq($1,$2,$3) as id",
+        [org, "Need sound and lighting for 300 people", "Riyadh"],
+      )
+    ).rows[0].id;
+    assert.equal(
+      (await db.query("select count(*)::int as c from my_cuelance_items"))
+        .rows[0].c,
+      1,
+    );
+    await act(b);
+    assert.equal(
+      (await db.query("select count(*)::int as c from vendor_quote_requests"))
+        .rows[0].c,
+      0,
+    );
+    await db.query(
+      "select record_operational_log('ERROR','test.vendor','Fixture failure',$1)",
+      [{ resource: "vendor_quote_requests" }],
+    );
+    assert.equal(
+      (await db.query("select count(*)::int as c from operational_logs")).rows[0]
+        .c,
+      0,
+    );
+    await assert.rejects(
+      db.query("select upsert_vendor_profile($1,$2,$3,$4)", [
+        org,
+        ["B2B"],
+        ["Food"],
+        ["Jeddah"],
+      ]),
+      /Permission denied/,
+    );
+    await act(admin);
+    assert.equal(
+      (
+        await db.query(
+          "select (admin_list('operational_logs')->>'total')::int as total",
+        )
+      ).rows[0].total,
+      1,
+    );
+    assert.equal(
+      (
+        await db.query(
+          "select (admin_list('vendor_products')->>'total')::int as total",
+        )
+      ).rows[0].total,
+      1,
+    );
+    assert.ok(rfqId);
     for (let i = 0; i < 3; i++)
       await db.query("select begin_ai_request('GENERATE_BIO')");
     await assert.rejects(

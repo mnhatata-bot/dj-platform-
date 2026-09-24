@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  experimental: {
+    useTypeScriptCli: false,
+  },
   serverExternalPackages: ["@react-pdf/renderer"],
   outputFileTracingIncludes: {
     "/api/v1/epks/*/pdf": [

@@ -11,7 +11,6 @@ import {
   isValidElement,
 } from "react";
 import { Help } from "@/modules/ui/guided";
-import { defaultSectionContent, normalizeContent, richSectionGuidance, richSectionLabels, type RichEntry, type RichLink, type RichSectionContent } from "@/modules/epk/application/rich-content";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { LanguageSwitch, useLocale } from "@/modules/localization/ui/provider";
@@ -89,6 +88,44 @@ type TicketType = {
   quantity_sold: number;
   status: string;
 };
+type VendorProfile = {
+  id: string;
+  organization_id: string;
+  capabilities: string[];
+  service_categories: string[];
+  service_areas: string[];
+  verification_status: string;
+  storefront_status: string;
+};
+type VendorProduct = {
+  id: string;
+  vendor_id: string;
+  name: string;
+  category: string;
+  offering_type: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  deposit_amount: number;
+  inventory_quantity: number;
+  status: string;
+};
+type VendorRfq = {
+  id: string;
+  requirement: string;
+  city: string | null;
+  status: string;
+  created_at: string;
+};
+type MyItem = {
+  id: string;
+  item_type: string;
+  title: string;
+  status: string;
+  resource_type: string | null;
+  starts_at: string | null;
+  created_at: string;
+};
 type Template =
   "underground" | "minimal" | "festival" | "luxury" | "experimental";
 type Tab =
@@ -100,6 +137,8 @@ type Tab =
   | "events"
   | "community"
   | "scanner"
+  | "vendor"
+  | "my"
   | "media"
   | "ai"
   | "messages"
@@ -181,7 +220,7 @@ export default function AccountWorkspace() {
   const [org, setOrg] = useState<Org | null>(null);
   const [epk, setEpk] = useState<Epk | null>(null);
   const [sections, setSections] = useState<
-    { id: string; type: string; enabled: boolean; visibility?: string; sort_order: number; content_json?: RichSectionContent }[]
+    { id: string; type: string; enabled: boolean; sort_order: number }[]
   >([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
@@ -209,9 +248,42 @@ export default function AccountWorkspace() {
     ticketPrice: "100",
     ticketCapacity: "100",
     scannerToken: "",
+    vendorCategories: "Sound, Lighting, F&B",
+    vendorAreas: "Riyadh, Jeddah",
+    productName: "Premium sound system rental",
+    productCategory: "Sound",
+    productType: "B2B_RENTAL",
+    productPrice: "2500",
+    productInventory: "3",
+    rfqRequirement: "Need sound, lighting and DJ booth setup for a 300-person event.",
   });
   const [theme, setTheme] = useState<Template>("underground");
   const [selectedEventId, setSelectedEventId] = useState("");
+  const [vendor, setVendor] = useState<VendorProfile | null>(null);
+  const [vendorProducts, setVendorProducts] = useState<VendorProduct[]>([]);
+  const [vendorRfqs, setVendorRfqs] = useState<VendorRfq[]>([]);
+  const [myItems, setMyItems] = useState<MyItem[]>([]);
+  async function recordOperationalLog(
+    level: "INFO" | "WARNING" | "ERROR" | "FATAL",
+    area: string,
+    message: string,
+    context: Record<string, unknown> = {},
+  ) {
+    try {
+      await supabase.rpc("record_operational_log", {
+        p_level: level,
+        p_area: area,
+        p_message: message.slice(0, 1900),
+        p_context: context,
+        p_request_path:
+          typeof window === "undefined" ? null : window.location.pathname,
+        p_user_agent:
+          typeof navigator === "undefined" ? null : navigator.userAgent,
+      });
+    } catch {
+      // Logging must never break the workflow it is observing.
+    }
+  }
   useEffect(() => {
     supabase.auth
       .getUser()
@@ -220,6 +292,29 @@ export default function AccountWorkspace() {
       setUser(session?.user as User | null),
     );
     return () => auth.subscription.unsubscribe();
+  }, []);
+  useEffect(() => {
+    const onError = (event: ErrorEvent) => {
+      void recordOperationalLog("ERROR", "client.runtime", event.message, {
+        filename: event.filename,
+        line: event.lineno,
+        column: event.colno,
+      });
+    };
+    const onRejection = (event: PromiseRejectionEvent) => {
+      void recordOperationalLog("ERROR", "client.promise", "Unhandled promise rejection", {
+        reason:
+          event.reason instanceof Error
+            ? event.reason.message
+            : String(event.reason ?? "unknown"),
+      });
+    };
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
   }, []);
   useEffect(() => {
     if (user) void load();
@@ -294,7 +389,7 @@ export default function AccountWorkspace() {
         setTheme((currentEpk as Epk).template_id);
         const { data: currentSections } = await supabase
           .from("epk_sections")
-          .select("id,type,enabled,visibility,sort_order,content_json")
+          .select("id,type,enabled,sort_order")
           .eq("epk_id", (currentEpk as Epk).id)
           .order("sort_order");
         setSections(currentSections ?? []);
@@ -309,6 +404,8 @@ export default function AccountWorkspace() {
       { data: allOpportunities },
       { data: allEvents },
       { data: allCommunities },
+      { data: publicProducts },
+      { data: personalItems },
     ] = await Promise.all([
       supabase
         .from("opportunities")
@@ -325,10 +422,47 @@ export default function AccountWorkspace() {
         .select("*")
         .eq("status", "ACTIVE")
         .order("created_at", { ascending: false }),
+      supabase
+        .from("vendor_products")
+        .select("*")
+        .eq("status", "ACTIVE")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("my_cuelance_items")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(30),
     ]);
     setOpportunities((allOpportunities ?? []) as Opportunity[]);
     setEvents((allEvents ?? []) as EventItem[]);
     setCommunities((allCommunities ?? []) as Community[]);
+    setVendorProducts((publicProducts ?? []) as VendorProduct[]);
+    setMyItems((personalItems ?? []) as MyItem[]);
+    if (currentOrg) {
+      const { data: currentVendor } = await supabase
+        .from("vendor_profiles")
+        .select("*")
+        .eq("organization_id", currentOrg.id)
+        .maybeSingle();
+      setVendor(currentVendor as VendorProfile | null);
+      const { data: rfqs } = await supabase
+        .from("vendor_quote_requests")
+        .select("id,requirement,city,status,created_at")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      setVendorRfqs((rfqs ?? []) as VendorRfq[]);
+      if (currentVendor) {
+        const { data: products } = await supabase
+          .from("vendor_products")
+          .select("*")
+          .eq("vendor_id", (currentVendor as VendorProfile).id)
+          .order("created_at", { ascending: false });
+        setVendorProducts((products ?? []) as VendorProduct[]);
+      }
+    } else {
+      setVendor(null);
+      setVendorRfqs([]);
+    }
     const eventIds = (allEvents ?? [])
       .filter((event: any) => event.organization_id === currentOrg?.id)
       .map((event: any) => event.id);
@@ -365,7 +499,13 @@ export default function AccountWorkspace() {
             },
           });
     setBusy(false);
-    if (result.error) return tell(result.error.message);
+    if (result.error) {
+      void recordOperationalLog("WARNING", "auth", result.error.message, {
+        mode,
+        email,
+      });
+      return tell(result.error.message);
+    }
     if (mode === "signup" && !result.data.session) {
       setVerificationEmail(email);
       return tell(
@@ -452,18 +592,10 @@ export default function AccountWorkspace() {
         sectionTypes.map((type, index) => ({
           epk_id: newEpk.id,
           type,
-          enabled: ["hero", "bio", "music", "gallery", "booking", "press", "social", "downloads"].includes(
+          enabled: ["hero", "bio", "music", "gallery", "booking"].includes(
             type,
           ),
           sort_order: index,
-          visibility: "PUBLIC",
-          content_json: defaultSectionContent(type, {
-            stageName: dj.stage_name,
-            city: dj.primary_city ?? form.city,
-            country: dj.country ?? form.country,
-            genre: dj.genres?.[0] ?? form.genre,
-            bio: dj.short_bio ?? form.bio,
-          }),
         })),
       );
     }
@@ -487,14 +619,6 @@ export default function AccountWorkspace() {
       .update({ enabled: !section.enabled })
       .eq("id", section.id);
     tell(error ? error.message : "Section updated.");
-    await load();
-  }
-  async function updateSectionContent(sectionId: string, content: RichSectionContent) {
-    const { error } = await supabase
-      .from("epk_sections")
-      .update({ content_json: content, enabled: true, visibility: "PUBLIC" })
-      .eq("id", sectionId);
-    tell(error ? error.message : "EPK section saved.");
     await load();
   }
   async function createOrganization() {
@@ -648,6 +772,89 @@ export default function AccountWorkspace() {
     setBusy(false);
     tell(error ? error.message : `Scanner result: ${data}`);
   }
+  const csv = (value: string) =>
+    value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  async function saveVendorProfile() {
+    if (!org) return tell("Create an organization before opening Vendor OS.");
+    setBusy(true);
+    const { data, error } = await supabase.rpc("upsert_vendor_profile", {
+      p_organization: org.id,
+      p_capabilities: ["B2B", "B2C"],
+      p_categories: csv(form.vendorCategories),
+      p_areas: csv(form.vendorAreas),
+    });
+    setBusy(false);
+    if (error)
+      void recordOperationalLog("ERROR", "vendor.profile", error.message, {
+        organization_id: org.id,
+      });
+    tell(error ? error.message : `Vendor storefront saved (${String(data).slice(0, 8)}).`);
+    await load();
+  }
+  async function createVendorProduct() {
+    if (!vendor) return tell("Publish your vendor profile first.");
+    setBusy(true);
+    const { error } = await supabase.from("vendor_products").insert({
+      vendor_id: vendor.id,
+      name: form.productName,
+      category: form.productCategory,
+      offering_type: form.productType,
+      description: "Production-ready catalog item managed from Vendor OS.",
+      price: Number(form.productPrice) || 0,
+      currency: "SAR",
+      deposit_amount: Math.round((Number(form.productPrice) || 0) * 0.25),
+      inventory_quantity: Number(form.productInventory) || 1,
+      status: "ACTIVE",
+    });
+    setBusy(false);
+    if (error)
+      void recordOperationalLog("ERROR", "vendor.catalog", error.message, {
+        vendor_id: vendor.id,
+        product: form.productName,
+      });
+    tell(error ? error.message : "Vendor catalog item is live.");
+    await load();
+  }
+  async function createRfq() {
+    if (!form.rfqRequirement.trim())
+      return tell("Describe what you need from vendors first.");
+    setBusy(true);
+    const { data, error } = await supabase.rpc("create_vendor_rfq", {
+      p_buyer_org: org?.id ?? null,
+      p_requirement: form.rfqRequirement,
+      p_city: form.city,
+      p_needed_at: form.eventDate || null,
+      p_event: selectedEventId || null,
+    });
+    setBusy(false);
+    if (error)
+      void recordOperationalLog("ERROR", "vendor.rfq", error.message, {
+        organization_id: org?.id,
+        requirement: form.rfqRequirement,
+      });
+    tell(error ? error.message : `RFQ created (${String(data).slice(0, 8)}).`);
+    await load();
+  }
+  async function saveMyItem(title: string, itemType = "FOLLOW") {
+    if (!user) return;
+    const { error } = await supabase.from("my_cuelance_items").insert({
+      user_id: user.id,
+      item_type: itemType,
+      title,
+      status: "SAVED",
+      metadata: { source: "workspace" },
+    });
+    if (error)
+      void recordOperationalLog("ERROR", "my_cuelance", error.message, {
+        itemType,
+        title,
+      });
+    tell(error ? error.message : "Saved to My Cuelance.");
+    await load();
+  }
   async function signOut() {
     await supabase.auth.signOut();
     for (const key of Object.keys(sessionStorage))
@@ -755,6 +962,8 @@ export default function AccountWorkspace() {
     { id: "promote", label: "Promoter desk" },
     { id: "events", label: "Events & tickets" },
     { id: "community", label: "Community" },
+    { id: "vendor", label: "Vendor OS", tag: "V2" },
+    { id: "my", label: "My Cuelance", tag: "USER" },
     { id: "scanner", label: "Entry scanner", tag: "PWA" },
     { id: "guide", label: "Guide & examples", tag: "HELP" },
     { id: "media", label: t("nav.media") },
@@ -808,6 +1017,8 @@ export default function AccountWorkspace() {
                         promote: "مكتب المروج",
                         events: "الفعاليات والتذاكر",
                         community: "المجتمع",
+                        vendor: "مساحة الموردين",
+                        my: "مساحتي",
                         scanner: "ماسح الدخول",
                         guide: "الدليل والأمثلة",
                       } as Record<string, string>
@@ -855,7 +1066,6 @@ export default function AccountWorkspace() {
               onSave={saveEpk}
               onPublish={publishEpk}
               onToggle={toggleSection}
-              onSectionSave={updateSectionContent}
             />
           )}
           {tab === "marketplace" && (
@@ -903,9 +1113,34 @@ export default function AccountWorkspace() {
               onJoin={requestMembership}
             />
           )}
+          {tab === "vendor" && (
+            <VendorDesk
+              org={org}
+              vendor={vendor}
+              products={vendorProducts}
+              rfqs={vendorRfqs}
+              form={form}
+              setForm={setForm}
+              busy={busy}
+              onSaveVendor={saveVendorProfile}
+              onCreateProduct={createVendorProduct}
+              onCreateRfq={createRfq}
+              onSaveItem={saveMyItem}
+            />
+          )}
+          {tab === "my" && (
+            <MyCuelance
+              items={myItems}
+              tickets={ticketTypes}
+              events={events}
+              communities={communities}
+              products={vendorProducts}
+              onSaveItem={saveMyItem}
+            />
+          )}
           {tab === "scanner" && <CameraScanner />}
           {tab === "wallet" && <Wallet />}
-          {tab === "media" && <MediaLibrary epkId={epk?.id} onAttached={load} />}
+          {tab === "media" && <MediaLibrary epkId={epk?.id} />}
           {tab === "ai" && (
             <Writer
               initial={locale === "ar" ? form.bioAr : form.bio}
@@ -1103,134 +1338,111 @@ function EpkStudio({
   onSave,
   onPublish,
   onToggle,
-  onSectionSave,
 }: any) {
   const selected = templates.find((item) => item.id === theme)!;
   const { t } = useLocale();
-  const [selectedSectionId, setSelectedSectionId] = useState<string>("");
-  const [draft, setDraft] = useState<RichSectionContent>({});
-  const orderedSections = [...sections].sort((a: any, b: any) => a.sort_order - b.sort_order);
-  const selectedSection = orderedSections.find((section: any) => section.id === selectedSectionId) || orderedSections[0];
-  useEffect(() => {
-    if (!selectedSection) return;
-    setSelectedSectionId(selectedSection.id);
-    setDraft(normalizeContent(selectedSection.content_json || defaultSectionContent(selectedSection.type, {
-      stageName: dj?.stage_name,
-      city: dj?.primary_city,
-      country: dj?.country,
-      genre: dj?.genres?.[0],
-      bio: dj?.short_bio,
-    })));
-  }, [selectedSection?.id]);
-  const setDraftField = (key: keyof RichSectionContent, value: any) =>
-    setDraft((current) => ({ ...current, [key]: value }));
-  const parseList = (value: string) => value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
-  const parseLinks = (value: string): RichLink[] =>
-    value.split("\n").map((line) => {
-      const [label, ...rest] = line.split("|");
-      return { label: (label || "").trim(), url: rest.join("|").trim() };
-    }).filter((link) => link.label || link.url);
-  const parseEntries = (value: string): RichEntry[] =>
-    value.split("\n").map((line) => {
-      const [title, description, meta, url] = line.split("|").map((item) => item?.trim() || "");
-      return { title, description, meta, url };
-    }).filter((entry) => entry.title || entry.description);
-  const linksText = (draft.links || []).map((link) => `${link.label || ""}|${link.url || ""}`).join("\n");
-  const entriesText = (draft.entries || []).map((entry) => `${entry.title || ""}|${entry.description || ""}|${entry.meta || ""}|${entry.url || ""}`).join("\n");
   return (
     <>
       <PageHeading
         eyebrow="EPK MODULE"
-        title="Press-kit studio"
-        description="Build the public EPK and PDF from the same saved sections: cover, profile, sound, releases, booking formats, credentials, downloads and contact links."
-        actionLabel={busy ? "Saving…" : epk ? "Save EPK shell" : "Create EPK"}
+        title="EPK studio"
+        description="Content is stored separately from presentation, so templates can evolve without losing the artist record."
+        actionLabel={busy ? "Saving…" : epk ? "Save EPK" : "Create EPK"}
         onAction={onSave}
       />
-      <div className="epk-layout rich-epk-layout">
+      <div className="epk-layout">
         <section className="card section-panel">
           <div className="card-title">
-            <h3><Localized text="Workflow sections" /></h3>
-            <span>{orderedSections.filter((s: any) => s.enabled).length}/{orderedSections.length || sectionTypes.length} <Localized text="active" /></span>
+            <h3>
+              <Localized text="Sections" />
+            </h3>
+            <span>
+              {sections.filter((s: any) => s.enabled).length}/
+              {sections.length || sectionTypes.length}{" "}
+              <Localized text="active" />{" "}
+            </span>
           </div>
-          {orderedSections.length ? (
-            orderedSections.map((section: any) => (
-              <div className={`section-toggle-row ${selectedSection?.id === section.id ? "selected" : ""}`} key={section.id}>
-                <button className="section-toggle" onClick={() => setSelectedSectionId(section.id)}>
-                  <span><i className={section.enabled ? "dot active" : "dot"} />{richSectionLabels[section.type] || section.type.replace(/_/g, " ")}</span>
-                  <small>{section.enabled ? "On" : "Off"}</small>
-                </button>
-                <button className="mini-action" onClick={() => onToggle(section)}>{section.enabled ? "Hide" : "Show"}</button>
-              </div>
+          {sections.length ? (
+            sections.map((section: any) => (
+              <button
+                className="section-toggle"
+                onClick={() => onToggle(section)}
+                key={section.id}
+              >
+                <span>
+                  <i className={section.enabled ? "dot active" : "dot"} />
+                  {section.type.replace(/_/g, " ")}
+                </span>
+                <small>{section.enabled ? "On" : "Off"}</small>
+              </button>
             ))
           ) : (
-            <Empty title="Create the EPK" body="It will generate rich schema-driven press-kit sections." />
-          )}
-        </section>
-        <section className="card rich-section-editor">
-          {selectedSection ? (
-            <>
-              <p className="eyebrow">{richSectionLabels[selectedSection.type] || selectedSection.type}</p>
-              <h3><Localized text="Section content" /></h3>
-              <p className="helper">{richSectionGuidance[selectedSection.type] || "Add the saved content for this public EPK section."}</p>
-              <div className="form-grid">
-                <Field label="Kicker / small label">
-                  <input value={draft.kicker || ""} onChange={(e) => setDraftField("kicker", e.target.value)} placeholder="ARTIST PROFILE" />
-                </Field>
-                <Field label="Heading">
-                  <input value={draft.heading || ""} onChange={(e) => setDraftField("heading", e.target.value)} placeholder="Rhythm came first." />
-                </Field>
-                <Field label="Subheading">
-                  <input value={draft.subheading || ""} onChange={(e) => setDraftField("subheading", e.target.value)} placeholder="Saudi DJ / Producer / VJ" />
-                </Field>
-                <Field label="Badges">
-                  <textarea value={(draft.badges || []).join("\n")} onChange={(e) => setDraftField("badges", parseList(e.target.value))} />
-                </Field>
-                <Field label="Main copy" wide>
-                  <textarea value={draft.text || ""} onChange={(e) => setDraftField("text", e.target.value)} placeholder="Write the story, sound direction, credentials or booking note." />
-                </Field>
-                <Field label="Entries" wide>
-                  <textarea value={entriesText} onChange={(e) => setDraftField("entries", parseEntries(e.target.value))} placeholder="Club / Festival | Peak-energy DJ set | 90-120 min | https://..." />
-                </Field>
-                <Field label="Active links" wide>
-                  <textarea value={linksText} onChange={(e) => setDraftField("links", parseLinks(e.target.value))} placeholder="Apple Music | https://music.apple.com/..." />
-                </Field>
-                <Field label="Callout" wide>
-                  <input value={draft.callout || ""} onChange={(e) => setDraftField("callout", e.target.value)} placeholder="Send a structured brief and we will reply with availability." />
-                </Field>
-              </div>
-              {(draft.asset_ids || []).length > 0 && (
-                <div className="module-note">{draft.asset_ids?.length} media asset(s) attached. Manage uploads from the Media tab; attached public assets render in this section and the PDF.</div>
-              )}
-              <button className="button primary" disabled={busy} onClick={() => onSectionSave(selectedSection.id, draft)}>
-                Save this section
-              </button>
-            </>
-          ) : (
-            <Empty title="Create the EPK first" body="Then each section becomes editable with examples and guidance." />
+            <Empty
+              title="Create the EPK"
+              body="It will generate schema-driven sections you can control."
+            />
           )}
         </section>
         <section className={`epk-preview ${theme}`}>
-          <div className="preview-top"><Pill value={epk?.status ?? "DRAFT"} /><span><Localized text="PUBLIC EPK" /></span></div>
-          <div className="preview-copy">
-            <p>{draft.kicker || dj?.primary_city?.toUpperCase() || "RIYADH"}</p>
-            <h1>{draft.heading || dj?.stage_name || "YOUR NAME"}</h1>
-            <div className="preview-line" />
-            <span>{draft.subheading || draft.text || dj?.short_bio || "Your artist narrative will appear here."}</span>
+          <div className="preview-top">
+            <Pill value={epk?.status ?? "DRAFT"} />
+            <span>
+              <Localized text="PUBLIC EPK" />
+            </span>
           </div>
-          <div className="preview-footer"><span>{selected.label}</span><span>{PLATFORM_DOMAIN}</span></div>
+          <div className="preview-copy">
+            <p>{dj?.primary_city?.toUpperCase() ?? "RIYADH"}</p>
+            <h1>{dj?.stage_name ?? "YOUR NAME"}</h1>
+            <div className="preview-line" />
+            <span>
+              {dj?.short_bio ?? "Your artist narrative will appear here."}
+            </span>
+          </div>
+          <div className="preview-footer">
+            <span>{selected.label}</span>
+            <span>{PLATFORM_DOMAIN}</span>
+          </div>
         </section>
         <section className="card template-panel">
-          <p className="eyebrow"><Localized text="PRESENTATION" /></p>
-          <h3><Localized text="Choose a template" /></h3>
+          <p className="eyebrow">
+            <Localized text="PRESENTATION" />
+          </p>
+          <h3>
+            <Localized text="Choose a template" />
+          </h3>
           {templates.map((item) => (
-            <button key={item.id} onClick={() => setTheme(item.id)} className={`template-option ${theme === item.id ? "selected" : ""}`}>
-              <b>{item.label}</b><small>{item.description}</small>
+            <button
+              key={item.id}
+              onClick={() => setTheme(item.id)}
+              className={`template-option ${theme === item.id ? "selected" : ""}`}
+            >
+              <b>{item.label}</b>
+              <small>{item.description}</small>
             </button>
           ))}
-          {epk && <button className="button primary full" onClick={onPublish}><Localized text="Publish EPK" /></button>}
-          {epk?.status === "PUBLISHED" && <a className="button full epk-public-link" href={`/epk/${epk.slug}`} target="_blank" rel="noreferrer"><Localized text="Open live EPK" /></a>}
-          {epk?.status === "PUBLISHED" && <a className="button full" href={`/api/v1/epks/${epk.slug}/pdf`}>{t("pdf.download")}</a>}
-          <p className="helper"><Localized text="Publishing creates an immutable publication version in the database." /></p>
+          {epk && (
+            <button className="button primary full" onClick={onPublish}>
+              <Localized text="Publish EPK" />{" "}
+            </button>
+          )}
+          {epk?.status === "PUBLISHED" && (
+            <a
+              className="button full epk-public-link"
+              href={`/epk/${epk.slug}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Localized text="Open live EPK" />{" "}
+            </a>
+          )}
+          {epk?.status === "PUBLISHED" && (
+            <a className="button full" href={`/api/v1/epks/${epk.slug}/pdf`}>
+              {t("pdf.download")}
+            </a>
+          )}
+          <p className="helper">
+            <Localized text="Publishing creates an immutable publication version in the database." />{" "}
+          </p>
         </section>
       </div>
     </>
@@ -1681,6 +1893,319 @@ function CommunityDesk({
     </>
   );
 }
+function VendorDesk({
+  org,
+  vendor,
+  products,
+  rfqs,
+  form,
+  setForm,
+  busy,
+  onSaveVendor,
+  onCreateProduct,
+  onCreateRfq,
+  onSaveItem,
+}: any) {
+  return (
+    <>
+      <PageHeading
+        eyebrow="VENDOR OS"
+        title="Sell rentals, services and event supplies."
+        description="Vendor OS covers B2B procurement and B2C commerce without creating another disconnected marketplace."
+        actionLabel={vendor ? "Update storefront" : "Publish vendor profile"}
+        onAction={onSaveVendor}
+      />
+      {!org && (
+        <section className="card empty-wide">
+          <Empty
+            title="Organization required"
+            body="Create an organization first, then turn it into a vendor storefront."
+          />
+        </section>
+      )}
+      {org && (
+        <div className="three-column">
+          <section className="card form-card">
+            <p className="eyebrow">01 / STOREFRONT</p>
+            <h3>{org.name}</h3>
+            <Field label="Vendor categories">
+              <input
+                value={form.vendorCategories}
+                onChange={(e) =>
+                  setForm({ ...form, vendorCategories: e.target.value })
+                }
+                placeholder="Sound, Lighting, F&B"
+              />
+            </Field>
+            <Field label="Service areas">
+              <input
+                value={form.vendorAreas}
+                onChange={(e) =>
+                  setForm({ ...form, vendorAreas: e.target.value })
+                }
+                placeholder="Riyadh, Jeddah"
+              />
+            </Field>
+            <button className="button primary full" onClick={onSaveVendor}>
+              {vendor ? "Update storefront" : "Publish vendor profile"}
+            </button>
+            {vendor && (
+              <div className="module-note">
+                {vendor.verification_status} · {vendor.storefront_status} ·{" "}
+                {vendor.service_categories.join(", ")}
+              </div>
+            )}
+          </section>
+          <section className="card form-card">
+            <p className="eyebrow">02 / CATALOG</p>
+            <Field label="Product or service name">
+              <input
+                value={form.productName}
+                onChange={(e) =>
+                  setForm({ ...form, productName: e.target.value })
+                }
+              />
+            </Field>
+            <div className="mini-grid">
+              <Field label="Category">
+                <input
+                  value={form.productCategory}
+                  onChange={(e) =>
+                    setForm({ ...form, productCategory: e.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Offering type">
+                <select
+                  value={form.productType}
+                  onChange={(e) =>
+                    setForm({ ...form, productType: e.target.value })
+                  }
+                >
+                  {[
+                    "B2B_RENTAL",
+                    "B2B_SERVICE",
+                    "B2C_PRODUCT",
+                    "B2C_EXPERIENCE",
+                  ].map((type) => (
+                    <option key={type}>{type}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Catalog price">
+                <input
+                  type="number"
+                  value={form.productPrice}
+                  onChange={(e) =>
+                    setForm({ ...form, productPrice: e.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Inventory">
+                <input
+                  type="number"
+                  value={form.productInventory}
+                  onChange={(e) =>
+                    setForm({ ...form, productInventory: e.target.value })
+                  }
+                />
+              </Field>
+            </div>
+            <button
+              className="button primary full"
+              onClick={onCreateProduct}
+              disabled={busy || !vendor}
+            >
+              Add live catalog item
+            </button>
+          </section>
+          <section className="card form-card">
+            <p className="eyebrow">03 / PROCUREMENT</p>
+            <Field label="RFQ requirement">
+              <textarea
+                value={form.rfqRequirement}
+                onChange={(e) =>
+                  setForm({ ...form, rfqRequirement: e.target.value })
+                }
+              />
+            </Field>
+            <button className="button primary full" onClick={onCreateRfq}>
+              Request vendor quotes
+            </button>
+            <p className="helper">
+              RFQs are stored in the backend and also added to My Cuelance as a
+              tracked form/activity item.
+            </p>
+          </section>
+        </div>
+      )}
+      <div className="two-column">
+        <section className="card">
+          <div className="card-title">
+            <h3>Marketplace catalog</h3>
+            <span>{products.length}</span>
+          </div>
+          {products.length ? (
+            products.map((product: VendorProduct) => (
+              <div className="list-row" key={product.id}>
+                <div>
+                  <b>{product.name}</b>
+                  <small>
+                    {product.offering_type} · {product.category} ·{" "}
+                    {currency(product.price, product.currency)}
+                  </small>
+                </div>
+                <button
+                  className="button small"
+                  onClick={() => onSaveItem(product.name, "ORDER")}
+                >
+                  Save
+                </button>
+              </div>
+            ))
+          ) : (
+            <Empty
+              title="No catalog items yet"
+              body="Publish a storefront, then add B2B rental or B2C items."
+            />
+          )}
+        </section>
+        <section className="card">
+          <div className="card-title">
+            <h3>RFQ board</h3>
+            <span>{rfqs.length}</span>
+          </div>
+          {rfqs.length ? (
+            rfqs.map((rfq: VendorRfq) => (
+              <div className="list-row" key={rfq.id}>
+                <div>
+                  <b>{rfq.requirement}</b>
+                  <small>{rfq.city ?? "City TBC"}</small>
+                </div>
+                <Pill value={rfq.status} />
+              </div>
+            ))
+          ) : (
+            <Empty
+              title="No RFQs yet"
+              body="Create a procurement request to compare vendor responses."
+            />
+          )}
+        </section>
+      </div>
+    </>
+  );
+}
+function MyCuelance({
+  items,
+  events,
+  communities,
+  products,
+  onSaveItem,
+}: any) {
+  return (
+    <>
+      <PageHeading
+        eyebrow="MY CUELANCE"
+        title="Your personal live-music hub."
+        description="Tickets, communities, vendor orders, forms, follows and event history belong in one consumer workspace."
+      />
+      <div className="metric-grid">
+        <Metric label="Saved activity" value={String(items.length)} />
+        <Metric label="Events" value={String(events.length)} />
+        <Metric label="Communities" value={String(communities.length)} />
+        <Metric label="Marketplace items" value={String(products.length)} />
+        <Metric label="Workspace" value="Consumer" status="positive" />
+      </div>
+      <div className="three-column">
+        <section className="card">
+          <div className="card-title">
+            <h3>For you</h3>
+            <span>events</span>
+          </div>
+          {events.slice(0, 4).map((event: EventItem) => (
+            <div className="list-row" key={event.id}>
+              <div>
+                <b>{event.title}</b>
+                <small>{event.city ?? event.venue ?? "Location TBC"}</small>
+              </div>
+              <button
+                className="button small"
+                onClick={() => onSaveItem(event.title, "EVENT")}
+              >
+                Save
+              </button>
+            </div>
+          ))}
+        </section>
+        <section className="card">
+          <div className="card-title">
+            <h3>Communities</h3>
+            <span>member layer</span>
+          </div>
+          {communities.slice(0, 4).map((community: Community) => (
+            <div className="list-row" key={community.id}>
+              <div>
+                <b>{community.name}</b>
+                <small>{community.membership_mode}</small>
+              </div>
+              <button
+                className="button small"
+                onClick={() => onSaveItem(community.name, "COMMUNITY")}
+              >
+                Save
+              </button>
+            </div>
+          ))}
+        </section>
+        <section className="card">
+          <div className="card-title">
+            <h3>Marketplace</h3>
+            <span>B2C/B2B</span>
+          </div>
+          {products.slice(0, 4).map((product: VendorProduct) => (
+            <div className="list-row" key={product.id}>
+              <div>
+                <b>{product.name}</b>
+                <small>{currency(product.price, product.currency)}</small>
+              </div>
+              <button
+                className="button small"
+                onClick={() => onSaveItem(product.name, "ORDER")}
+              >
+                Save
+              </button>
+            </div>
+          ))}
+        </section>
+      </div>
+      <section className="card table-card">
+        <div className="card-title">
+          <h3>Activity timeline</h3>
+          <span>{items.length}</span>
+        </div>
+        {items.length ? (
+          items.map((item: MyItem) => (
+            <div className="list-row" key={item.id}>
+              <div>
+                <b>{item.title}</b>
+                <small>
+                  {item.item_type} · {new Date(item.created_at).toLocaleString()}
+                </small>
+              </div>
+              <Pill value={item.status} />
+            </div>
+          ))
+        ) : (
+          <Empty
+            title="No personal activity yet"
+            body="Save an event, community or marketplace item to start your consumer hub."
+          />
+        )}
+      </section>
+    </>
+  );
+}
 function GuideDesk({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
   const { t } = useLocale();
   const guides: {
@@ -2005,6 +2530,38 @@ const fieldHelp: Record<string, { tip: string; example: string }> = {
   "QR credential token": {
     tip: "Paste the secure ticket token. Each successful scan can only be used once.",
     example: "Use a credential issued by a complimentary ticket.",
+  },
+  "Vendor categories": {
+    tip: "List the vendor categories this storefront should be found under.",
+    example: "Example: Sound, Lighting, F&B",
+  },
+  "Service areas": {
+    tip: "Cities or markets where the vendor can operate.",
+    example: "Example: Riyadh, Jeddah",
+  },
+  "Product or service name": {
+    tip: "Name the rental, service or product buyers will request.",
+    example: "Example: Premium sound system rental",
+  },
+  Category: {
+    tip: "The marketplace category used for filtering.",
+    example: "Example: Sound",
+  },
+  "Offering type": {
+    tip: "Choose whether this is B2B rental, B2B service, B2C product or B2C experience.",
+    example: "Example: B2B_RENTAL for event equipment.",
+  },
+  "Catalog price": {
+    tip: "Reference price shown to buyers before quote or checkout.",
+    example: "Example: 2500 SAR",
+  },
+  Inventory: {
+    tip: "Available quantity for the catalog item.",
+    example: "Example: 3 sound systems.",
+  },
+  "RFQ requirement": {
+    tip: "Describe the procurement need, date, scale and specifications.",
+    example: "Example: Sound, lighting and DJ booth for a 300-person event.",
   },
 };
 function Field({

@@ -39,6 +39,12 @@ const resources = [
   "feature_flags",
   "user_roles",
   "ai_requests",
+  "vendor_profiles",
+  "vendor_products",
+  "vendor_quote_requests",
+  "vendor_quotes",
+  "my_cuelance_items",
+  "operational_logs",
 ];
 const roles = [
   "USER",
@@ -55,7 +61,7 @@ const roles = [
 export default function AdminConsole() {
   const { t, locale } = useLocale();
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [tab, setTab] = useState<"pages" | "records" | "settings">("pages");
+  const [tab, setTab] = useState<"pages" | "records" | "logs" | "settings">("pages");
   const [pages, setPages] = useState<PageDocument[]>([]);
   const [document, setDocument] = useState<PageDocument>(blank);
   const [preview, setPreview] = useState(false);
@@ -91,10 +97,10 @@ export default function AdminConsole() {
     if (error) throw error;
     setPages(data || []);
   }
-  async function recordList() {
+  async function recordList(entity = resource) {
     setLoading(true);
     const { data, error } = await supabase.rpc("admin_list", {
-      p_entity: resource,
+      p_entity: entity,
       p_page: page,
       p_search: appliedSearch,
     });
@@ -111,6 +117,11 @@ export default function AdminConsole() {
   useEffect(() => {
     if (allowed && tab === "records") void recordList();
   }, [allowed, tab, resource, page, appliedSearch]);
+  useEffect(() => {
+    if (!allowed || tab !== "logs") return;
+    setResource("operational_logs");
+    void recordList("operational_logs");
+  }, [allowed, tab, page, appliedSearch]);
   useEffect(() => {
     if (!document.id) {
       setRevisions([]);
@@ -238,13 +249,13 @@ export default function AdminConsole() {
     <>
       <ModuleHeading title={t("admin.title")} help={t("admin.help")} />
       <nav className="actions" aria-label={t("admin.title")}>
-        {(["pages", "records", "settings"] as const).map((id) => (
+        {(["pages", "records", "logs", "settings"] as const).map((id) => (
           <button
             className={`button ${tab === id ? "primary" : ""}`}
             key={id}
             onClick={() => setTab(id)}
           >
-            {t(`admin.${id}`)}
+            {id === "logs" ? "Operations log" : t(`admin.${id}`)}
           </button>
         ))}
       </nav>
@@ -506,6 +517,19 @@ export default function AdminConsole() {
           }}
         />
       )}
+      {tab === "logs" && (
+        <OperationsLog
+          rows={rows}
+          total={total}
+          page={page}
+          setPage={setPage}
+          search={search}
+          setSearch={setSearch}
+          setAppliedSearch={setAppliedSearch}
+          loading={loading}
+          reload={recordList}
+        />
+      )}
       {tab === "records" && (
         <section className="card">
           <form
@@ -758,5 +782,132 @@ export default function AdminConsole() {
         </section>
       )}
     </>
+  );
+}
+
+function OperationsLog({
+  rows,
+  total,
+  page,
+  setPage,
+  search,
+  setSearch,
+  setAppliedSearch,
+  loading,
+  reload,
+}: {
+  rows: Row[];
+  total: number;
+  page: number;
+  setPage: (value: number) => void;
+  search: string;
+  setSearch: (value: string) => void;
+  setAppliedSearch: (value: string) => void;
+  loading: boolean;
+  reload: () => Promise<void>;
+}) {
+  const { t, locale } = useLocale();
+  const unresolved = rows.filter((row) => !row.resolved_at).length;
+  async function resolve(id: unknown) {
+    const note = prompt("Resolution note or optimization action taken") || "";
+    const { error } = await supabase.rpc("resolve_operational_log", {
+      p_id: id,
+      p_note: note,
+    });
+    if (error) alert(error.message);
+    else void reload();
+  }
+  return (
+    <section className="card">
+      <div className="card-title">
+        <h3>Operations log</h3>
+        <span>
+          {unresolved} unresolved · {total.toLocaleString(locale)} total
+        </span>
+      </div>
+      <form
+        className="actions"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setPage(0);
+          setAppliedSearch(search);
+        }}
+      >
+        <input
+          aria-label={t("search")}
+          value={search}
+          maxLength={100}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search error, area, route, user or context"
+        />
+        <button className="button">{t("search")}</button>
+        <button className="button" type="button" onClick={() => void reload()}>
+          {t("refresh")}
+        </button>
+      </form>
+      {loading ? (
+        <p>{t("loading")}</p>
+      ) : !rows.length ? (
+        <p>{t("empty")}</p>
+      ) : (
+        <div className="admin-records">
+          {rows.map((row, index) => (
+            <article
+              className={`admin-record ops-log ${String(row.level || "").toLowerCase()}`}
+              key={String(row.id || index)}
+            >
+              <div className="card-title">
+                <h3>
+                  {String(row.level)} · {String(row.area)}
+                </h3>
+                <span>
+                  {row.created_at
+                    ? new Date(String(row.created_at)).toLocaleString()
+                    : ""}
+                </span>
+              </div>
+              <p className="break-text">{String(row.message || "")}</p>
+              <div className="actions">
+                <span className="pill">{String(row.request_path || "no route")}</span>
+                <span className="pill">{row.user_id ? "user-linked" : "anonymous"}</span>
+                <span className="pill">
+                  {row.resolved_at ? "resolved" : "unresolved"}
+                </span>
+              </div>
+              <details>
+                <summary>Context and debug data</summary>
+                <pre className="break-text">
+                  {JSON.stringify(row.context || {}, null, 2)}
+                </pre>
+              </details>
+              {!row.resolved_at && (
+                <button className="button" onClick={() => resolve(row.id)}>
+                  Mark resolved
+                </button>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+      <div className="actions">
+        <button
+          className="button"
+          disabled={page === 0 || loading}
+          onClick={() => setPage(page - 1)}
+        >
+          {t("previous")}
+        </button>
+        <span>
+          {page + 1} / {Math.max(1, Math.ceil(total / 25))}
+        </span>
+        <button
+          className="button"
+          disabled={(page + 1) * 25 >= total || loading}
+          onClick={() => setPage(page + 1)}
+        >
+          {t("next")}
+        </button>
+      </div>
+    </section>
   );
 }

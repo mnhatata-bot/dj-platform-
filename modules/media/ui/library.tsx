@@ -4,7 +4,6 @@ import { supabase } from "@/lib/supabase";
 import { api } from "@/lib/api-client";
 import { useLocale } from "@/modules/localization/ui/provider";
 import { GuidedField, ModuleHeading, Status } from "@/modules/ui/guided";
-import { richSectionLabels } from "@/modules/epk/application/rich-content";
 type Asset = {
   id: string;
   kind: string;
@@ -14,14 +13,13 @@ type Asset = {
   visibility: string;
   metadata: { name?: string; alt?: string };
 };
-export default function MediaLibrary({ epkId, onAttached }: { epkId?: string; onAttached?: () => void }) {
+export default function MediaLibrary({ epkId }: { epkId?: string }) {
   const { t } = useLocale();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [alt, setAlt] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
-  const [targetSection, setTargetSection] = useState("gallery");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const input = useRef<HTMLInputElement>(null);
@@ -135,14 +133,14 @@ export default function MediaLibrary({ epkId, onAttached }: { epkId?: string; on
           .eq("id", asset.id);
         if (error) throw error;
       }
-      const type = targetSection || (
+      const type =
         asset.kind === "IMAGE"
           ? "gallery"
           : asset.kind === "AUDIO"
             ? "music"
             : asset.kind === "VIDEO"
               ? "video"
-              : "downloads");
+              : "downloads";
       const { data: section, error } = await supabase
         .from("epk_sections")
         .select("id,content_json")
@@ -173,8 +171,7 @@ export default function MediaLibrary({ epkId, onAttached }: { epkId?: string; on
               content_json: content,
             });
       if (result.error) throw result.error;
-      setNotice(`${t("media.attached")} ${richSectionLabels[type] || type}.`);
-      onAttached?.();
+      setNotice(t("media.attached"));
       await load();
     });
   }
@@ -199,15 +196,6 @@ export default function MediaLibrary({ epkId, onAttached }: { epkId?: string; on
             onChange={(e) => setAlt(e.target.value)}
           />
         </GuidedField>
-        {epkId && (
-          <GuidedField label="Attach uploads to EPK section" help="Choose where the next Attach action places the selected asset. Images can go to cover/profile/gallery/credentials/downloads; audio should go to sound; documents to downloads or credentials.">
-            <select value={targetSection} onChange={(event) => setTargetSection(event.target.value)}>
-              {["hero", "bio", "music", "video", "gallery", "highlights", "press", "events", "social", "downloads", "technical_rider", "booking"].map((type) => (
-                <option key={type} value={type}>{richSectionLabels[type] || type}</option>
-              ))}
-            </select>
-          </GuidedField>
-        )}
         <button
           className="button primary"
           disabled={!file || busy}
