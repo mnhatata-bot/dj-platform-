@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { LanguageSwitch, useLocale } from "@/modules/localization/ui/provider";
 
+import {Visual} from "@/modules/providers/ui/visual";
+
 type Section = "artists" | "events" | "opportunities" | "communities";
 type Listing = {
   id: string;
@@ -11,6 +13,7 @@ type Listing = {
   description: string;
   location?: string;
   slug?: string;
+  banner?: string;
 };
 const labels: Record<Section, string> = {
   artists: "Artist EPKs",
@@ -53,7 +56,7 @@ export default function GuestExplore() {
             : section === "events"
               ? await supabase
                   .from("events")
-                  .select("id,title,description,city")
+                  .select("id,title,description,city,slug,banner_url")
                   .in("status", ["PUBLISHED", "LIVE"])
                   .eq("visibility", "PUBLIC")
                   .limit(100)
@@ -78,6 +81,7 @@ export default function GuestExplore() {
               description: row.seo_description ?? row.description ?? "",
               location: row.city,
               slug: row.slug,
+              banner: row.banner_url,
             })),
           );
       } catch {
@@ -133,6 +137,7 @@ export default function GuestExplore() {
             ? "التصفح متاح للجميع. سجل الدخول إلى مساحة العمل لإنشاء ملفك وإدارة أعمالك."
             : "Browsing is open to everyone. Sign in to the workspace to create your profile and manage your work."}
         </div>
+        <a className="button primary" href="/marketplace">{ar?"سوق مقدمي الخدمات":"Provider marketplace"} ↗</a>
         <nav
           aria-label={ar ? "استكشف كيولانس" : "Explore Cuelance"}
           style={{
@@ -176,9 +181,11 @@ export default function GuestExplore() {
             <div className="card-grid">
               {items.map((item) => (
                 <article className="card" key={item.id}>
+                  <Visual src={item.banner} alt={item.title}/>
                   <h3>{item.title}</h3>
                   <p>{item.description}</p>
                   {item.location && <p>{item.location}</p>}
+                  {section === "events" && item.slug && <a className="button primary" href={`/events/${item.slug}`}>{ar?"الفعالية والتذاكر":"Event & tickets"} ↗</a>}
                   {section === "artists" && item.slug && (
                     <a
                       className="button primary"

@@ -45,6 +45,9 @@ const resources = [
   "vendor_quotes",
   "my_cuelance_items",
   "operational_logs",
+  "provider_pages",
+  "provider_offerings",
+  "provider_inquiries",
 ];
 const roles = [
   "USER",

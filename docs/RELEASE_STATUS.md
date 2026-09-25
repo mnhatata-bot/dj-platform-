@@ -1,3 +1,17 @@
+# Current release: provider pages, marketplace and event/ticket visuals — 25 September 2026
+
+This section supersedes older deployment-blocker notes below for the changes listed here. It does not certify full BRD/SRS completion.
+
+Implemented: eight provider page categories (artist, promoter, venue, community, agency, production, vendor, event professional); public `/p/[slug]` pages; marketplace search/category filtering; image uploads; persisted offerings and customer inquiries; provider replies; customer inquiry history; public event pages; event artwork editing; complimentary ticket reservation using the existing transactional service; redesigned QR passes and printing; active organization selection; admin visibility for new records; localized English/Arabic guidance and responsive layouts.
+
+Database migrations applied to the connected Supabase project: provider_pages_and_offerings, event_visibility_and_staff_boundaries, provider_admin_visibility_and_rpc_grants. All new tables use RLS and explicit grants. Customers cannot change inquiry identity or provider replies. Scanner membership cannot edit events. Anonymous access to authenticated operational/admin RPCs was revoked.
+
+Validation: TypeScript and production build passed. PostgreSQL tests cover provider ownership, draft/public visibility, private event access, scanner edit denial, inquiry identity protection, and the pre-existing module rules. A live transactional save was executed and rolled back; grants were checked. Public browser/deployment acceptance is recorded after deployment. No full authenticated browser regression or physical camera test has been completed for this release.
+
+Outstanding requirements (not approved deferrals): full original BRD/SRS compliance, payment provider/checkout, complete subscriptions and entitlements, advanced provider commerce/order fulfillment, agency roster/calendar/deal-room workflows, thumbnail processing/background jobs, complete multi-device accessibility/RTL and end-to-end acceptance. The legacy Vendor OS catalog and new individual provider offerings are separate records; automatic migration/synchronization between them is not implemented. Provider inquiries are requests, not completed bookings or paid orders. Existing uploaded event photos are retained; missing photos use branded artwork until owners upload their own.
+
+## Historical release notes
+
 # Cuelance guided modules — release status
 
 This change belongs only to `mnhatata-bot/dj-platform-`. It does not modify SoundCode.

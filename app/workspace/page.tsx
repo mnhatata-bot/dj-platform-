@@ -22,6 +22,13 @@ const MediaLibrary = dynamic(() => import("@/modules/media/ui/library"));
 const Inbox = dynamic(() => import("@/modules/messaging/ui/inbox"));
 const AdminConsole = dynamic(() => import("@/modules/admin/ui/console"));
 
+const MyInquiries = dynamic(() => import("@/modules/providers/ui/inquiries"));
+const ProviderEditor = dynamic(() => import("@/modules/providers/ui/editor"));
+import EventArtwork from "@/modules/events/ui/artwork-editor";
+import ImageInput from "@/modules/providers/ui/image-input";
+import { Visual } from "@/modules/providers/ui/visual";
+import { mediaUrl } from "@/modules/providers/application/catalog";
+
 type User = { id: string; email?: string };
 type DJ = {
   id: string;
@@ -66,6 +73,8 @@ type EventItem = {
   city: string | null;
   starts_at: string;
   status: string;
+  banner_url?: string;
+  description?: string;
   ticketing_enabled: boolean;
   approval_required: boolean;
   organization_id: string;
@@ -136,8 +145,12 @@ type RoleOS =
   | "fan"
   | "agency"
   | "production"
+  | "vendor"
+  | "staff"
   | "admin";
 type Tab =
+  | "inquiries"
+  | "publicpage"
   | "overview"
   | "artist"
   | "epk"
@@ -261,6 +274,18 @@ const workspaceDefs: Record<
     ],
     metrics: ["Run sheet", "Tasks", "Access", "Incidents"],
   },
+  vendor: {
+    label: "Vendor", os: "Vendor workspace", promise: "Show your products and services, and receive customer inquiries.",
+    home: "Public page, offerings, quote requests and media.", nav: ["overview","publicpage","vendor","media","messages","guide"],
+    next: [{label:"Build public storefront",tab:"publicpage"},{label:"Manage vendor catalog",tab:"vendor"},{label:"Upload product photos",tab:"media"}],
+    metrics: ["Products","Requests","Media","Events"],
+  },
+  staff: {
+    label: "Event professional", os: "Professional workspace", promise: "Present your experience and services, and manage authorized event entry.",
+    home: "Public profile, services, event entry and messages.", nav: ["overview","publicpage","scanner","media","messages","guide"],
+    next: [{label:"Build public profile",tab:"publicpage"},{label:"Open entry scanner",tab:"scanner"},{label:"Upload portfolio",tab:"media"}],
+    metrics: ["Profile","Services","Entry","Media"],
+  },
   admin: {
     label: "Admin",
     os: "Cuelance Command",
@@ -346,6 +371,8 @@ export default function AccountWorkspace() {
   const [verificationEmail, setVerificationEmail] = useState("");
   const [dj, setDj] = useState<DJ | null>(null);
   const [org, setOrg] = useState<Org | null>(null);
+  const [organizations,setOrganizations] = useState<Org[]>([]);
+  const [canAdmin,setCanAdmin] = useState(false);
   const [epk, setEpk] = useState<Epk | null>(null);
   const [sections, setSections] = useState<
     { id: string; type: string; enabled: boolean; sort_order: number }[]
@@ -369,6 +396,8 @@ export default function AccountWorkspace() {
     opportunityTitle: "",
     opportunityDescription: "",
     eventTitle: "",
+    eventCover: null as string | null,
+    eventDescription: "",
     venue: "",
     eventDate: "",
     communityName: "",
@@ -413,6 +442,11 @@ export default function AccountWorkspace() {
     }
   }
   useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (requested === "wallet") setTab("wallet");
+    if (requested === "publicpage") setTab("publicpage");
+  }, []);
+  useEffect(() => {
     supabase.auth
       .getUser()
       .then(({ data }) => setUser(data.user as User | null));
@@ -445,7 +479,11 @@ export default function AccountWorkspace() {
     };
   }, []);
   useEffect(() => {
-    if (user) void load();
+    if (user) {
+      const saved = localStorage.getItem(`cuelance.workspace.${user.id}`);
+      if (saved && saved in workspaceDefs) setActiveRole(saved as RoleOS);
+      void load();
+    }
   }, [user]);
   const ownedEvents = useMemo(
     () => events.filter((event) => event.organization_id === org?.id),
@@ -459,7 +497,7 @@ export default function AccountWorkspace() {
     [opportunities, org],
   );
 
-  async function load() {
+  async function load(preferredOrg?: string) {
     if (!user) return;
     const [{ data: existingDj }, { data: membership }] = await Promise.all([
       supabase
@@ -470,12 +508,15 @@ export default function AccountWorkspace() {
       supabase
         .from("organization_members")
         .select("organizations(*)")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle(),
+        .eq("user_id", user.id),
     ]);
     const currentDj = existingDj as DJ | null;
-    const currentOrg = (membership as any)?.organizations as Org | null;
+    const available = ((membership || []) as unknown as {organizations:Org}[]).map(m=>m.organizations).filter(Boolean);
+    setOrganizations(available);
+    const preferred = preferredOrg || localStorage.getItem(`cuelance.organization.${user.id}`);
+    const currentOrg = available.find(o=>o.id===preferred) || available[0] || null;
+    const adminAccess = await supabase.rpc("platform_admin");
+    setCanAdmin(adminAccess.data === true);
     setDj(currentDj);
     setOrg(currentOrg ?? null);
     if (currentDj) {
@@ -809,6 +850,8 @@ export default function AccountWorkspace() {
       .insert({
         organization_id: org.id,
         title: form.eventTitle,
+        description: form.eventDescription,
+        banner_url: mediaUrl(form.eventCover) || null,
         slug: `${slugify(form.eventTitle)}-${Date.now().toString().slice(-5)}`,
         venue: form.venue,
         city: form.city,
@@ -1019,6 +1062,7 @@ export default function AccountWorkspace() {
           </div>
         </section>
         <form className="card auth-card" onSubmit={submitAuth}>
+          <a className="button small" href="/marketplace">{t("page.marketplace")}</a>
           <LanguageSwitch />
           <p className="eyebrow">
             <Localized text="ACCESS CUELANCE" />
@@ -1101,9 +1145,12 @@ export default function AccountWorkspace() {
     { id: "admin", label: t("nav.admin") },
   ];
   const activeWorkspace = workspaceDefs[activeRole];
-  const nav = allNav.filter((item) => activeWorkspace.nav.includes(item.id));
+  const nav = allNav.filter((item) => activeWorkspace.nav.includes(item.id) && (item.id !== "admin" || canAdmin));
+  if (activeRole !== "fan" && activeRole !== "admin") nav.splice(1, 0, {id:"publicpage",label:t("page.title")});
+  nav.push({id:"inquiries",label:t("page.myInquiries")});
   function switchRole(role: RoleOS) {
     setActiveRole(role);
+    if (user) localStorage.setItem(`cuelance.workspace.${user.id}`, role);
     setTab("overview");
   }
   return (
@@ -1135,7 +1182,7 @@ export default function AccountWorkspace() {
             <Localized text={activeWorkspace.os.toUpperCase()} />
           </div>
           <div className="role-switcher" aria-label="Cuelance workspace switcher">
-            {(Object.keys(workspaceDefs) as RoleOS[]).map((role) => (
+            {(Object.keys(workspaceDefs) as RoleOS[]).filter(role=>role!=="admin" || canAdmin).map((role) => (
               <button
                 key={role}
                 className={activeRole === role ? "active" : ""}
@@ -1146,6 +1193,7 @@ export default function AccountWorkspace() {
               </button>
             ))}
           </div>
+          {organizations.length>1 && <label className="organization-switch">{t("page.organization")}<select value={org?.id || ""} onChange={e=>{localStorage.setItem(`cuelance.organization.${user.id}`,e.target.value);setSelectedEventId("");void load(e.target.value);}}>{organizations.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>}
           {nav.map((item) => (
             <button
               key={item.id}
@@ -1198,6 +1246,8 @@ export default function AccountWorkspace() {
               onRole={switchRole}
             />
           )}
+          {tab === "inquiries" && <MyInquiries/>}
+          {tab === "publicpage" && activeRole !== "fan" && activeRole !== "admin" && <ProviderEditor key={activeRole} role={activeRole} />}
           {tab === "artist" && (
             <ArtistEditor
               form={form}
@@ -1250,6 +1300,7 @@ export default function AccountWorkspace() {
               setSelectedEventId={setSelectedEventId}
               busy={busy}
               onCreateEvent={createEvent}
+              onRefresh={() => {void load();}}
               onCreateTicket={createTicketType}
               onTestTicket={issueComplimentaryTicket}
             />
@@ -1846,9 +1897,11 @@ function EventsDesk({
   setSelectedEventId,
   busy,
   onCreateEvent,
+  onRefresh,
   onCreateTicket,
   onTestTicket,
 }: any) {
+  const { t } = useLocale();
   return (
     <>
       <PageHeading
@@ -1865,6 +1918,7 @@ function EventsDesk({
         </section>
       ) : (
         <>
+          <div className="visual-grid event-management-grid">{ownedEvents.map((event: EventItem)=><article className="visual-card" key={event.id}><a href={`/events/${event.slug}`}><Visual src={event.banner_url} alt={event.title}/><div className="visual-card-body"><span className="eyebrow">{event.city} · {event.status}</span><h3>{event.title}</h3><p>{event.venue} · {new Date(event.starts_at).toLocaleString()}</p><span>{t("event.public")} ↗</span></div></a><details className="event-art-edit"><summary>{t("page.edit")}</summary><EventArtwork event={event} onSaved={onRefresh}/></details></article>)}</div>
           <div className="event-layout">
             <section className="card form-card">
               <p className="eyebrow">
@@ -1879,6 +1933,8 @@ function EventsDesk({
                   placeholder="After Dark — Opening Night"
                 />
               </Field>
+              <ImageInput label={t("event.cover")} value={form.eventCover} onChange={(id) => setForm({...form,eventCover:id})} />
+              <label>{t("event.description")}<textarea rows={4} maxLength={6000} value={form.eventDescription} onChange={(e)=>setForm({...form,eventDescription:e.target.value})}/></label>
               <Field label="Venue">
                 <input
                   value={form.venue}

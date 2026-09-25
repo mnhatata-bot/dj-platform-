@@ -33,8 +33,9 @@ test("New module migrations enforce member/admin boundaries and validation", asy
  create table public.tickets(id uuid primary key,status text,credential_token uuid);
  create table public.checkins(id uuid,scanner_user_id uuid,checked_in_at timestamptz);
  create table public.feature_flags(key text primary key,enabled boolean,updated_at timestamptz default now());
- create table public.media_assets(id uuid primary key,owner_user_id uuid,storage_key text,visibility text);
+ create table public.media_assets(id uuid primary key,owner_user_id uuid,storage_key text,visibility text,kind text default 'IMAGE');
  alter table public.media_assets enable row level security;
+ create policy media_read on public.media_assets for select to authenticated using(owner_user_id=auth.uid() or visibility='PUBLIC');
  create table public.cms_pages(id uuid primary key,slug text,language text check(language in ('en','ar')),title text,seo_title text,seo_description text,status text check(status in ('DRAFT','PUBLISHED','ARCHIVED')),blocks jsonb,published_at timestamptz,unique(slug,language));
  create table public.audit_logs(id uuid default gen_random_uuid(),actor_id uuid,action text,resource_type text,resource_id text,metadata jsonb,created_at timestamptz default now());
  create table storage.buckets(id text primary key,file_size_limit bigint,allowed_mime_types text[]);
@@ -62,6 +63,10 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await db.exec(
       "grant select,insert,update,delete on all tables in schema public to authenticated; grant select on all tables in schema public to anon;",
     );
+    await db.exec(readFileSync(new URL('../supabase/migrations/20260925113604_provider_pages_and_offerings.sql',import.meta.url),'utf8'));
+    await db.exec("alter table public.events enable row level security; alter table public.ticket_types enable row level security;");
+    await db.exec(readFileSync(new URL('../supabase/migrations/20260925114743_event_visibility_and_staff_boundaries.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../supabase/migrations/20260925115248_provider_admin_visibility_and_rpc_grants.sql',import.meta.url),'utf8'));
     const admin = "10000000-0000-4000-8000-000000000001",
       a = "10000000-0000-4000-8000-000000000002",
       b = "10000000-0000-4000-8000-000000000003";
@@ -118,6 +123,45 @@ test("New module migrations enforce member/admin boundaries and validation", asy
       ]);
       await db.exec("set role authenticated");
     };
+    const privateEvent='71000000-0000-4000-8000-000000000001';
+    await db.query("insert into events(id,organization_id,title,status,visibility) values($1,$2,'Private event','PUBLISHED','PRIVATE')",[privateEvent,org]);
+    await act(b);
+    assert.equal((await db.query("select * from events where id=$1",[privateEvent])).rows.length,0);
+    await db.exec('reset role');
+    await db.query("insert into organization_members values($1,$2,'SCANNER')",[org,b]);
+    await act(b);
+    assert.equal((await db.query("select * from events where id=$1",[privateEvent])).rows.length,1);
+    assert.equal((await db.query("update events set title='Scanner edit' where id=$1 returning id",[privateEvent])).rows.length,0);
+    await db.exec('reset role');
+    await db.query("delete from organization_members where organization_id=$1 and user_id=$2",[org,b]);
+    // Provider page publishing, marketplace visibility and cross-owner boundaries.
+    await act(a);
+    const assetId = (await db.query("select id from media_assets where visibility='PUBLIC' limit 1")).rows[0].id;
+    const pageId = (await db.query("insert into provider_pages(owner_user_id,role,slug,display_name,bio,cover_asset_id) values($1,'venue','test-venue','Test Venue','A venue for independent electronic music events.',$2) returning id",[a,assetId])).rows[0].id;
+    await db.exec("reset role; set role anon");
+    assert.equal((await db.query("select * from provider_pages")).rows.length,0);
+    await act(b);
+    assert.equal((await db.query("update provider_pages set display_name='Hijacked' where id=$1 returning id",[pageId])).rows.length,0);
+    await assert.rejects(db.query("insert into provider_pages(owner_user_id,role,slug,display_name) values($1,'venue','fake-owner','Fake')",[a]),/row-level security/);
+    await act(a);
+    await db.query("update provider_pages set status='PUBLISHED' where id=$1",[pageId]);
+    const offeringId=(await db.query("insert into provider_offerings(provider_id,title,kind,status,image_asset_id) values($1,'Venue rental','RENTAL','ACTIVE',$2) returning id",[pageId,assetId])).rows[0].id;
+    await db.exec("reset role; set role anon");
+    assert.equal((await db.query("select * from provider_pages")).rows.length,1);
+    assert.equal((await db.query("select * from provider_offerings")).rows.length,1);
+    await assert.rejects(db.query("select * from provider_inquiries"),/permission denied/);
+    await act(b);
+    await assert.rejects(db.query("insert into provider_offerings(provider_id,title,kind) values($1,'Foreign listing','SERVICE')",[pageId]),/row-level security/);
+    const inquiryId=(await db.query("insert into provider_inquiries(provider_id,offering_id,requester_user_id,message) values($1,$2,$3,'Please share availability for our event.') returning id",[pageId,offeringId,b])).rows[0].id;
+    assert.equal((await db.query("update provider_inquiries set status='CLOSED' where id=$1 returning id",[inquiryId])).rows.length,0);
+    await act(a);
+    await db.query("update provider_inquiries set status='CONTACTED' where id=$1",[inquiryId]);
+    await assert.rejects(db.query("update provider_inquiries set requester_user_id=$1 where id=$2",[a,inquiryId]),/permission denied/);
+    await db.query("update provider_pages set status='PAUSED' where id=$1",[pageId]);
+    await db.exec("reset role; set role anon");
+    assert.equal((await db.query("select * from provider_offerings")).rows.length,0);
+    await act(a);
+    await assert.rejects(db.query("insert into provider_pages(owner_user_id,role,slug,display_name,status) values($1,'agency','no-cover','No Cover','PUBLISHED')",[a]),/cover image/);
     await act(b);
     await assert.rejects(
       db.query("select admin_list('profiles')"),

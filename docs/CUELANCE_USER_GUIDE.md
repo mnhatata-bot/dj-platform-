@@ -213,3 +213,17 @@ Payments, offline admission, and automatic email delivery must not be treated as
 5. الذكاء الاصطناعي غير متاح: احتفظ بالحقائق وتابع يدوياً. PDF مفقود: انشر ملفاً صحفياً أولاً. رُفض الإذن: استخدم المؤسسة الصحيحة أو اطلب الدور المطلوب.
 
 لا تعتبر الدفع أو الدخول دون اتصال أو إرسال البريد تلقائياً وظائف متحققة لمجرد ظهور إعداداتها في الإدارة.
+
+## Public pages, marketplace and event artwork (25 September 2026)
+
+Select Artist, Promoter, Venue, Community, Agency, Production, Vendor or Event professional. Open **Your public page**. Enter a unique lowercase page address, display name, headline, location and biography. Upload a cover image and optional avatar/logo (JPG, PNG, WebP; 10 MB maximum). These uploads are explicitly public. Save, then publish. A cover and at least 20 characters of biography are required. Your page lives at `/p/<slug>` and appears in `/marketplace`.
+
+Add **Services & products**, including rentals and experiences. Enter a description, starting price in SAR and an image; enable Publish offering and save. Published pages and active offerings use the same database records in the public directory. Unpublishing removes both from public discovery. Changing a slug invalidates the old link. Session drafts are recovered when returning to the page editor; Save persists them across devices.
+
+Visitors can send an inquiry after signing in. The provider sees it under Your public page and can save a response and mark it contacted or closed. Customers use **My inquiries** to read responses. Requests are limited to 20/hour/account. Inquiries do not create a paid order or confirm a booking.
+
+In **Events & tickets**, upload an event cover and enter a description. The cover appears on the public `/events/<slug>` page and the attendee's ticket. Public event pages support complimentary reservations with the existing inventory-protected ticket service. Paid checkout remains unavailable until a provider is configured.
+
+The **Ticket wallet** shows artwork, event-local date/time, venue, status and the actual issued credential. Only active/issued tickets display an admission QR. Used, cancelled, revoked and refunded passes do not. Print produces a paper pass; staff must still validate it online, including duplicate-entry checks.
+
+Provider identity categories describe services; they do not grant platform roles, administration privileges or organization membership. Customer workspaces do not need a public business page. Account ownership and row-level permissions apply to every save.
