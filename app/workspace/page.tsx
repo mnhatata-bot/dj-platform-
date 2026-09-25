@@ -128,6 +128,15 @@ type MyItem = {
 };
 type Template =
   "underground" | "minimal" | "festival" | "luxury" | "experimental";
+type RoleOS =
+  | "artist"
+  | "promoter"
+  | "venue"
+  | "community"
+  | "fan"
+  | "agency"
+  | "production"
+  | "admin";
 type Tab =
   | "overview"
   | "artist"
@@ -148,6 +157,124 @@ type Tab =
 
 const PLATFORM_DOMAIN = "cuelance.com";
 const paymentProviderConfigured = false;
+
+const workspaceDefs: Record<
+  RoleOS,
+  {
+    label: string;
+    os: string;
+    promise: string;
+    home: string;
+    nav: Tab[];
+    next: { label: string; tab: Tab }[];
+    metrics: string[];
+  }
+> = {
+  artist: {
+    label: "Artist",
+    os: "Career OS",
+    promise: "Get booked, look credible, and turn every event into career proof.",
+    home: "Profile, EPK, opportunities, bookings, money and analytics.",
+    nav: ["overview", "artist", "epk", "marketplace", "messages", "media", "ai", "wallet", "guide"],
+    next: [
+      { label: "Complete artist profile", tab: "artist" },
+      { label: "Publish living EPK", tab: "epk" },
+      { label: "Apply to opportunities", tab: "marketplace" },
+    ],
+    metrics: ["EPK readiness", "Applications", "Bookings", "Media vault"],
+  },
+  promoter: {
+    label: "Promoter",
+    os: "Promoter OS",
+    promise: "Find talent, publish events, manage audience and control entry.",
+    home: "Events, talent pipeline, ticketing, readiness, finance and analytics.",
+    nav: ["overview", "promote", "marketplace", "events", "community", "vendor", "messages", "scanner", "admin", "guide"],
+    next: [
+      { label: "Create organization", tab: "promote" },
+      { label: "Publish opportunity", tab: "promote" },
+      { label: "Build event + tickets", tab: "events" },
+    ],
+    metrics: ["Listings", "Events", "Ticket inventory", "Entry readiness"],
+  },
+  venue: {
+    label: "Venue",
+    os: "Venue OS",
+    promise: "Fill dates and make operational requirements clear before offers.",
+    home: "Calendar, event requests, specs, equipment, teams and finance.",
+    nav: ["overview", "promote", "events", "vendor", "messages", "admin", "guide"],
+    next: [
+      { label: "Create venue organization", tab: "promote" },
+      { label: "Publish availability event", tab: "events" },
+      { label: "Add production vendors", tab: "vendor" },
+    ],
+    metrics: ["Availability", "Requests", "Venue specs", "Operations"],
+  },
+  community: {
+    label: "Community",
+    os: "Community OS",
+    promise: "Grow members, approve access and convert attendance into relationships.",
+    home: "Members, events, forms, presales, engagement, revenue and analytics.",
+    nav: ["overview", "community", "events", "my", "messages", "admin", "guide"],
+    next: [
+      { label: "Create community", tab: "community" },
+      { label: "Publish member event", tab: "events" },
+      { label: "Review member hub", tab: "my" },
+    ],
+    metrics: ["Members", "Requests", "Events", "Segments"],
+  },
+  fan: {
+    label: "Fan",
+    os: "Scene OS",
+    promise: "Discover nights, hold tickets, follow scenes and remember experiences.",
+    home: "For-you events, tickets, communities, follows and scene history.",
+    nav: ["overview", "my", "marketplace", "community", "wallet", "guide"],
+    next: [
+      { label: "Open My Cuelance", tab: "my" },
+      { label: "Save an event", tab: "my" },
+      { label: "Open wallet", tab: "wallet" },
+    ],
+    metrics: ["Saved", "Tickets", "Communities", "History"],
+  },
+  agency: {
+    label: "Agency",
+    os: "Roster OS",
+    promise: "Operate multiple artists through one pipeline and one reporting layer.",
+    home: "Roster health, calendars, offers, revenue, tasks and analytics.",
+    nav: ["overview", "artist", "epk", "marketplace", "promote", "messages", "admin", "guide"],
+    next: [
+      { label: "Set roster identity", tab: "artist" },
+      { label: "Review opportunities", tab: "marketplace" },
+      { label: "Open admin records", tab: "admin" },
+    ],
+    metrics: ["Roster", "Offers", "Calendars", "Revenue"],
+  },
+  production: {
+    label: "Production",
+    os: "Production OS",
+    promise: "Run the show safely with tasks, credentials, incidents and files.",
+    home: "Live mode, run-of-show, tasks, artists, production, access and incidents.",
+    nav: ["overview", "events", "vendor", "scanner", "media", "messages", "admin", "guide"],
+    next: [
+      { label: "Select event", tab: "events" },
+      { label: "Validate entry", tab: "scanner" },
+      { label: "Coordinate vendors", tab: "vendor" },
+    ],
+    metrics: ["Run sheet", "Tasks", "Access", "Incidents"],
+  },
+  admin: {
+    label: "Admin",
+    os: "Cuelance Command",
+    promise: "Operate the network through CMS, support, trust, settings and logs.",
+    home: "System health, users, organizations, marketplace, events, money, trust and CMS.",
+    nav: ["overview", "admin", "guide", "messages", "media", "scanner"],
+    next: [
+      { label: "Open Cuelance Command", tab: "admin" },
+      { label: "Inspect operations log", tab: "admin" },
+      { label: "Review guide coverage", tab: "guide" },
+    ],
+    metrics: ["Users", "Content", "Risk", "System"],
+  },
+};
 
 const templates: { id: Template; label: string; description: string }[] = [
   {
@@ -213,6 +340,7 @@ export default function AccountWorkspace() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [tab, setTab] = useState<Tab>("overview");
+  const [activeRole, setActiveRole] = useState<RoleOS>("artist");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [verificationEmail, setVerificationEmail] = useState("");
@@ -954,7 +1082,7 @@ export default function AccountWorkspace() {
         </form>
       </main>
     );
-  const nav: { id: Tab; label: string; tag?: string }[] = [
+  const allNav: { id: Tab; label: string; tag?: string }[] = [
     { id: "overview", label: "Command center" },
     { id: "artist", label: "Artist profile" },
     { id: "epk", label: "EPK studio" },
@@ -972,6 +1100,12 @@ export default function AccountWorkspace() {
     { id: "messages", label: t("nav.messages") },
     { id: "admin", label: t("nav.admin") },
   ];
+  const activeWorkspace = workspaceDefs[activeRole];
+  const nav = allNav.filter((item) => activeWorkspace.nav.includes(item.id));
+  function switchRole(role: RoleOS) {
+    setActiveRole(role);
+    setTab("overview");
+  }
   return (
     <div className="app">
       <header className="topbar">
@@ -998,7 +1132,19 @@ export default function AccountWorkspace() {
       <div className="shell">
         <aside className="sidebar">
           <div className="workspace-label">
-            <Localized text="CUELANCE WORKSPACE" />
+            <Localized text={activeWorkspace.os.toUpperCase()} />
+          </div>
+          <div className="role-switcher" aria-label="Cuelance workspace switcher">
+            {(Object.keys(workspaceDefs) as RoleOS[]).map((role) => (
+              <button
+                key={role}
+                className={activeRole === role ? "active" : ""}
+                onClick={() => switchRole(role)}
+                title={workspaceDefs[role].promise}
+              >
+                {workspaceDefs[role].label}
+              </button>
+            ))}
           </div>
           {nav.map((item) => (
             <button
@@ -1029,21 +1175,27 @@ export default function AccountWorkspace() {
             </button>
           ))}
           <div className="sidebar-status">
-            <b>{dj ? "Artist ready" : "Artist setup"}</b>
-            <span>{org ? `${org.name} connected` : "No organization yet"}</span>
+            <b>{activeWorkspace.os}</b>
+            <span>{org ? `${org.name} connected` : activeWorkspace.home}</span>
           </div>
         </aside>
         <main className="content">
           {notice && <div className="notice floating">{notice}</div>}
           {tab === "overview" && (
             <Overview
+              activeRole={activeRole}
               dj={dj}
               org={org}
               epk={epk}
+              events={events}
+              communities={communities}
+              vendorProducts={vendorProducts}
+              myItems={myItems}
               applications={applications}
               bookings={bookings}
               ownedEvents={ownedEvents}
               onNavigate={setTab}
+              onRole={switchRole}
             />
           )}
           {tab === "artist" && (
@@ -1164,97 +1316,130 @@ export default function AccountWorkspace() {
 }
 
 function Overview({
+  activeRole,
   dj,
   org,
   epk,
+  events,
+  communities,
+  vendorProducts,
+  myItems,
   applications,
   bookings,
   ownedEvents,
   onNavigate,
+  onRole,
 }: any) {
+  const workspace = workspaceDefs[activeRole as RoleOS];
+  const readiness = [
+    { label: "Identity", done: Boolean(dj || org) },
+    { label: "Public presence", done: Boolean(epk?.status === "PUBLISHED" || org) },
+    { label: "Transaction path", done: Boolean(applications.length || ownedEvents.length || myItems.length) },
+    { label: "Operations", done: Boolean(ownedEvents.length || communities.length || vendorProducts.length) },
+  ];
   return (
     <>
       <PageHeading
-        eyebrow="CAREER + OPERATIONS"
-        title={
-          dj ? `Good evening, ${dj.stage_name}.` : "Start with your identity."
-        }
-        description="This is one operational record—not a collection of disconnected tools."
-        actionLabel={dj ? "Open EPK studio" : "Create artist profile"}
-        onAction={() => onNavigate(dj ? "epk" : "artist")}
+        eyebrow={workspace.os}
+        title={`${workspace.label} cockpit`}
+        description={workspace.promise}
+        actionLabel={workspace.next[0]?.label}
+        onAction={() => onNavigate(workspace.next[0]?.tab ?? "artist")}
       />
+      <section className="os-hero card">
+        <div>
+          <p className="eyebrow">ROLE-NATIVE WORKSPACE</p>
+          <h2>{workspace.home}</h2>
+          <p>
+            Cuelance is structured as one shared platform kernel rendered as
+            purpose-built operating systems. Switch roles on the left to see the
+            same records become different jobs-to-be-done.
+          </p>
+        </div>
+        <div className="os-next">
+          {workspace.next.map((item) => (
+            <button
+              className="button primary"
+              key={item.label}
+              onClick={() => onNavigate(item.tab)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </section>
       <div className="metric-grid">
         <Metric
-          label="Artist profile"
+          label={workspace.metrics[0]}
           value={dj ? "Ready" : "Missing"}
           status={dj ? "positive" : "warn"}
         />
         <Metric
-          label="Published EPK"
+          label={workspace.metrics[1]}
           value={epk?.status === "PUBLISHED" ? "Live" : "Draft"}
           status={epk?.status === "PUBLISHED" ? "positive" : "warn"}
         />
-        <Metric label="Applications" value={String(applications.length)} />
-        <Metric label="Bookings" value={String(bookings.length)} />
-        <Metric label="Your live events" value={String(ownedEvents.length)} />
+        <Metric label={workspace.metrics[2]} value={String(applications.length + ownedEvents.length + myItems.length)} />
+        <Metric label={workspace.metrics[3]} value={String(bookings.length + vendorProducts.length + communities.length)} />
+        <Metric label="BRD readiness" value={`${readiness.filter((item) => item.done).length}/4`} status="positive" />
       </div>
       <div className="two-column">
         <section className="card">
           <div className="card-title">
             <h3>
-              <Localized text="Pipeline" />
+              <Localized text="Workflow rail" />
             </h3>
             <span>
               <Localized text="Live data" />
             </span>
           </div>
-          {applications.length ? (
-            applications.slice(0, 5).map((application: any) => (
-              <div className="list-row" key={application.id}>
+          {readiness.map((item, index) => (
+              <div className="list-row" key={item.label}>
                 <div>
-                  <b>{application.opportunities?.title ?? "Opportunity"}</b>
-                  <small>
-                    {application.opportunities?.city ?? "Location TBC"}
-                  </small>
+                  <b>{index + 1}. {item.label}</b>
+                  <small>{item.done ? "Operational record exists" : "Needs setup before this role is complete"}</small>
                 </div>
-                <Pill value={application.status} />
+                <Pill value={item.done ? "READY" : "PENDING"} />
               </div>
-            ))
-          ) : (
-            <Empty
-              title="No applications yet"
-              body="Your opportunity responses will land here with their current state."
-            />
-          )}
+          ))}
         </section>
         <section className="card dark-card">
           <p className="eyebrow">
-            <Localized text="NEXT BEST MOVE" />
+            <Localized text="BRD COMPLIANCE NEXT MOVE" />
           </p>
           <h2>
-            {!dj
-              ? "Build the artist profile."
-              : !epk
-                ? "Create the first EPK."
-                : !org
-                  ? "Open your promoter organization."
-                  : "Create an event and ticket type."}
+            {workspace.next[0]?.label ?? "Continue setup"}
           </h2>
           <p>
-            <Localized text="A platform becomes valuable when each record leads to the next operational action." />{" "}
+            Each role must reach first value quickly: identity, public or
+            organizational presence, transaction path and operational follow-up.
           </p>
           <button
             className="button light"
-            onClick={() =>
-              onNavigate(
-                !dj ? "artist" : !epk ? "epk" : !org ? "promote" : "events",
-              )
-            }
+            onClick={() => onNavigate(workspace.next[0]?.tab ?? "artist")}
           >
             <Localized text="Continue setup" />{" "}
           </button>
         </section>
       </div>
+      <section className="card os-map">
+        <div className="card-title">
+          <h3>Role-native operating systems</h3>
+          <span>BRD v1.4 model</span>
+        </div>
+        <div className="os-grid">
+          {(Object.keys(workspaceDefs) as RoleOS[]).map((role) => (
+            <button
+              key={role}
+              className={`os-card ${role === activeRole ? "active" : ""}`}
+              onClick={() => onRole(role)}
+            >
+              <b>{workspaceDefs[role].os}</b>
+              <span>{workspaceDefs[role].promise}</span>
+            </button>
+          ))}
+        </div>
+      </section>
     </>
   );
 }
