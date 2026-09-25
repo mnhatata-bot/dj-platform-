@@ -49,7 +49,8 @@ Draft changes must be published before they appear in the download.
 3. The promoter reviews the Application pipeline, marks a submission viewed, shortlists it, then selects or declines it. Selecting an artist fills the opportunity and declines the other active applications.
 4. Artists can withdraw eligible applications from My applications. Application transitions are validated server-side.
 5. Visitors submit booking enquiries from a published EPK’s Booking form. Requests become real records in the artist workspace.
-6. For private conversation support, send the booking enquiry while signed in or use an existing opportunity application.
+6. The artist opens Booking requests and moves each enquiry through New, Contacted, Negotiating, Confirmed and Completed. Declined and cancelled requests remain in Closed, and every change creates history.
+7. For private conversation support, send the booking enquiry while signed in or use an existing opportunity application.
 
 Example: a 90-minute closing set with the event date and budget in the brief.
 

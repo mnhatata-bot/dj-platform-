@@ -99,6 +99,7 @@ const workflows = [
       "The promoter reviews the Application pipeline: mark a submission viewed, shortlist it, then select or decline it. Selecting one artist fills the opportunity and closes the remaining active applications.",
       "Artists can withdraw their own submitted, viewed or shortlisted application from My applications. Every transition is validated by the server.",
       "Visitors submit booking enquiries from a published EPK’s Booking form. Requests become real records in the artist workspace.",
+      "The artist opens Booking requests and moves each enquiry through New, Contacted, Negotiating, Confirmed and Completed. Declined and cancelled enquiries remain visible in Closed.",
       "For private conversation support, send the booking enquiry while signed in or use an existing opportunity application.",
     ],
     arSteps: [
@@ -107,6 +108,7 @@ const workflows = [
       "يراجع المروج مسار الطلبات: يعرض الطلب ثم يضيفه للقائمة المختصرة وبعدها يختار الفنان أو يرفض الطلب. اختيار فنان يملأ الفرصة ويغلق الطلبات النشطة الأخرى.",
       "يمكن للفنان سحب طلبه المرسل أو المعروض أو المدرج في القائمة المختصرة. يتحقق الخادم من كل انتقال.",
       "يرسل الزوار استفسار حجز من نموذج الحجز في الملف الصحفي المنشور. تظهر الطلبات كسجلات فعلية للفنان.",
+      "يفتح الفنان طلبات الحجز وينقل كل طلب عبر جديد، تم التواصل، تفاوض، مؤكد، ومكتمل. تبقى الطلبات المرفوضة والملغاة ظاهرة في المغلق.",
       "للمحادثة الخاصة، أرسل استفسار الحجز أثناء تسجيل الدخول أو استخدم طلب فرصة موجوداً.",
     ],
     example: [

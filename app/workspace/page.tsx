@@ -175,6 +175,7 @@ type Tab =
   | "artist"
   | "epk"
   | "marketplace"
+  | "bookings"
   | "promote"
   | "events"
   | "community"
@@ -208,7 +209,7 @@ const workspaceDefs: Record<
     os: "Career OS",
     promise: "Get booked, look credible, and turn every event into career proof.",
     home: "Profile, EPK, opportunities, bookings, money and analytics.",
-    nav: ["overview", "artist", "epk", "marketplace", "messages", "media", "ai", "wallet", "guide"],
+    nav: ["overview", "artist", "epk", "marketplace", "bookings", "messages", "media", "ai", "wallet", "guide"],
     next: [
       { label: "Complete artist profile", tab: "artist" },
       { label: "Publish living EPK", tab: "epk" },
@@ -874,6 +875,13 @@ export default function AccountWorkspace() {
     tell(error ? error.message : `Application moved to ${status.toLowerCase()}.`);
     if (!error) await load();
   }
+  async function transitionBooking(id:string,status:string){
+    setBusy(true);
+    const {error}=await supabase.rpc("transition_booking",{p_booking:id,p_status:status});
+    setBusy(false);
+    tell(error?error.message:`Booking moved to ${status.toLowerCase()}.`);
+    if(!error) await load();
+  }
   async function createEvent() {
     if (!org || !form.eventTitle.trim() || !form.eventDate)
       return tell("Add an organization, event title and event date.");
@@ -1249,6 +1257,7 @@ export default function AccountWorkspace() {
                         artist: "ملف الفنان",
                         epk: "استوديو الملف الصحفي",
                         marketplace: "سوق الفرص",
+                        bookings: "طلبات الحجز",
                         promote: "مكتب المروج",
                         events: "الفعاليات والتذاكر",
                         community: "المجتمع",
@@ -1320,6 +1329,7 @@ export default function AccountWorkspace() {
               onTransition={transitionApplication}
             />
           )}
+          {tab === "bookings" && <BookingDesk bookings={bookings} busy={busy} onTransition={transitionBooking}/>} 
           {tab === "promote" && (
             <PromoterDesk
               org={org}
@@ -1808,6 +1818,11 @@ function Marketplace({ opportunities, dj, applications, onApply, onTransition }:
       {applications.length > 0 && <section className="card workflow-board"><div className="card-title"><h2><Localized text="My applications" /></h2><span>{applications.length}</span></div><div className="workflow-list">{applications.map((application:any)=><article className="workflow-item" key={application.id}><div><b>{application.opportunities?.title || "Opportunity"}</b><small>{application.opportunities?.city || ""} · {new Date(application.created_at).toLocaleDateString()}</small></div><div className="row-actions"><Pill value={application.status}/>{["SUBMITTED","VIEWED","SHORTLISTED"].includes(application.status)&&<button className="button small" onClick={()=>onTransition(application.id,"WITHDRAWN")}><Localized text="Withdraw" /></button>}</div></article>)}</div></section>}
     </>
   );
+}
+function BookingDesk({bookings,busy,onTransition}:any){
+  const groups=["NEW","CONTACTED","NEGOTIATING","CONFIRMED","COMPLETED"];
+  const next:Record<string,{label:string,status:string}[]>={NEW:[{label:"Contacted",status:"CONTACTED"},{label:"Decline",status:"DECLINED"}],CONTACTED:[{label:"Negotiate",status:"NEGOTIATING"},{label:"Confirm",status:"CONFIRMED"},{label:"Decline",status:"DECLINED"}],NEGOTIATING:[{label:"Confirm",status:"CONFIRMED"},{label:"Decline",status:"DECLINED"}],CONFIRMED:[{label:"Complete",status:"COMPLETED"},{label:"Cancel",status:"CANCELLED"}]};
+  return <><PageHeading eyebrow="BOOKING PIPELINE" title="Move enquiries into confirmed work." description="Every status change is validated and recorded. Open Messages when the requester signed in to continue the private conversation."/><div className="booking-board">{groups.map(status=><section className="booking-column" key={status}><div className="card-title"><h3>{status.replaceAll('_',' ')}</h3><span>{bookings.filter((b:any)=>b.status===status).length}</span></div>{bookings.filter((b:any)=>b.status===status).map((booking:any)=><article className="card booking-card" key={booking.id}><Pill value={booking.status}/><h3>{booking.requester_name}</h3><small>{booking.organization_name||booking.requester_email}</small><p>{booking.message}</p><dl><dt>Event</dt><dd>{booking.event_date?new Date(booking.event_date).toLocaleString():"Date not set"}</dd><dt>Location</dt><dd>{booking.city||"Not set"}</dd><dt>Budget</dt><dd>{booking.budget||"Not set"}</dd></dl><div className="workflow-actions">{(next[booking.status]||[]).map(action=><button key={action.status} className={`button small ${action.status==="DECLINED"||action.status==="CANCELLED"?"danger":""}`} disabled={busy} onClick={()=>onTransition(booking.id,action.status)}>{action.label}</button>)}</div></article>)}</section>)}<section className="booking-column"><div className="card-title"><h3>CLOSED</h3><span>{bookings.filter((b:any)=>["DECLINED","CANCELLED"].includes(b.status)).length}</span></div>{bookings.filter((b:any)=>["DECLINED","CANCELLED"].includes(b.status)).map((booking:any)=><article className="card booking-card" key={booking.id}><Pill value={booking.status}/><h3>{booking.requester_name}</h3><small>{booking.organization_name||booking.requester_email}</small></article>)}</section></div></>;
 }
 function PromoterDesk({
   org,

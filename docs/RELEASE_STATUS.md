@@ -6,6 +6,8 @@ Implemented: eight provider page categories (artist, promoter, venue, community,
 
 Added after the initial release: promoter application pipeline with VIEWED, SHORTLISTED, SELECTED and DECLINED transitions; artist withdrawal; automatic opportunity fulfillment; community membership approval, rejection, suspension and restoration; server-enforced transition rules and manager-only queues.
 
+Added booking operations: artist Kanban for NEW, CONTACTED, NEGOTIATING, CONFIRMED, COMPLETED, DECLINED and CANCELLED enquiries; immutable status history; public-form normalization and throttling; requester identity enforcement.
+
 Database migrations applied to the connected Supabase project: provider_pages_and_offerings, event_visibility_and_staff_boundaries, provider_admin_visibility_and_rpc_grants. All new tables use RLS and explicit grants. Customers cannot change inquiry identity or provider replies. Scanner membership cannot edit events. Anonymous access to authenticated operational/admin RPCs was revoked.
 
 Validation: TypeScript and production build passed. PostgreSQL tests cover provider ownership, draft/public visibility, private event access, scanner edit denial, inquiry identity protection, and the pre-existing module rules. A live transactional save was executed and rolled back; grants were checked. Public browser/deployment acceptance is recorded after deployment. No full authenticated browser regression or physical camera test has been completed for this release.
