@@ -87,6 +87,26 @@ type Community = {
   status: string;
   organization_id: string;
 };
+type OpportunityApplication = {
+  id: string;
+  opportunity_id: string;
+  dj_profile_id: string;
+  cover_note: string | null;
+  proposed_fee: number | null;
+  currency: string;
+  status: string;
+  created_at: string;
+  opportunities?: { id: string; title: string; organization_id: string };
+  dj_profiles?: { stage_name: string; primary_city: string | null; genres: string[] };
+};
+type CommunityMember = {
+  community_id: string;
+  user_id: string;
+  status: string;
+  joined_at: string | null;
+  communities?: { id: string; name: string; organization_id: string };
+  profiles?: { display_name: string | null; avatar_url: string | null };
+};
 type TicketType = {
   id: string;
   event_id: string;
@@ -379,8 +399,10 @@ export default function AccountWorkspace() {
   >([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
+  const [managedApplications, setManagedApplications] = useState<OpportunityApplication[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
+  const [managedMembers, setManagedMembers] = useState<CommunityMember[]>([]);
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [form, setForm] = useState({
@@ -608,12 +630,14 @@ export default function AccountWorkspace() {
     setVendorProducts((publicProducts ?? []) as VendorProduct[]);
     setMyItems((personalItems ?? []) as MyItem[]);
     if (currentOrg) {
-      const { data: currentVendor } = await supabase
-        .from("vendor_profiles")
-        .select("*")
-        .eq("organization_id", currentOrg.id)
-        .maybeSingle();
+      const [{data:currentVendor},{data:orgApplications},{data:orgMembers}] = await Promise.all([
+        supabase.from("vendor_profiles").select("*").eq("organization_id", currentOrg.id).maybeSingle(),
+        supabase.from("applications").select("*, opportunities!inner(id,title,organization_id), dj_profiles(stage_name,primary_city,genres)").eq("opportunities.organization_id",currentOrg.id).order("created_at",{ascending:false}),
+        supabase.from("community_members").select("*, communities!inner(id,name,organization_id), profiles(display_name,avatar_url)").eq("communities.organization_id",currentOrg.id)
+      ]);
       setVendor(currentVendor as VendorProfile | null);
+      setManagedApplications((orgApplications ?? []) as unknown as OpportunityApplication[]);
+      setManagedMembers((orgMembers ?? []) as unknown as CommunityMember[]);
       const { data: rfqs } = await supabase
         .from("vendor_quote_requests")
         .select("id,requirement,city,status,created_at")
@@ -631,6 +655,8 @@ export default function AccountWorkspace() {
     } else {
       setVendor(null);
       setVendorRfqs([]);
+      setManagedApplications([]);
+      setManagedMembers([]);
     }
     const eventIds = (allEvents ?? [])
       .filter((event: any) => event.organization_id === currentOrg?.id)
@@ -841,6 +867,13 @@ export default function AccountWorkspace() {
     tell(error ? error.message : "Application submitted.");
     await load();
   }
+  async function transitionApplication(id: string, status: string) {
+    setBusy(true);
+    const {error}=await supabase.rpc("transition_application",{p_application:id,p_status:status});
+    setBusy(false);
+    tell(error ? error.message : `Application moved to ${status.toLowerCase()}.`);
+    if (!error) await load();
+  }
   async function createEvent() {
     if (!org || !form.eventTitle.trim() || !form.eventDate)
       return tell("Add an organization, event title and event date.");
@@ -912,6 +945,14 @@ export default function AccountWorkspace() {
       status: "PENDING",
     });
     tell(error ? error.message : "Membership request submitted.");
+    if (!error) await load();
+  }
+  async function transitionMember(communityId:string,userId:string,status:string){
+    setBusy(true);
+    const {error}=await supabase.rpc("transition_community_member",{p_community:communityId,p_user:userId,p_status:status});
+    setBusy(false);
+    tell(error?error.message:`Member moved to ${status.toLowerCase()}.`);
+    if(!error) await load();
   }
   async function issueComplimentaryTicket(ticket: TicketType) {
     if (!user) return;
@@ -1276,6 +1317,7 @@ export default function AccountWorkspace() {
               dj={dj}
               applications={applications}
               onApply={apply}
+              onTransition={transitionApplication}
             />
           )}
           {tab === "promote" && (
@@ -1287,6 +1329,8 @@ export default function AccountWorkspace() {
               busy={busy}
               onCreateOrganization={createOrganization}
               onCreateOpportunity={createOpportunity}
+              applications={managedApplications}
+              onTransition={transitionApplication}
             />
           )}
           {tab === "events" && (
@@ -1314,6 +1358,8 @@ export default function AccountWorkspace() {
               busy={busy}
               onCreate={createCommunity}
               onJoin={requestMembership}
+              members={managedMembers}
+              onTransition={transitionMember}
             />
           )}
           {tab === "vendor" && (
@@ -1684,7 +1730,7 @@ function EpkStudio({
     </>
   );
 }
-function Marketplace({ opportunities, dj, applications, onApply }: any) {
+function Marketplace({ opportunities, dj, applications, onApply, onTransition }: any) {
   return (
     <>
       <PageHeading
@@ -1759,6 +1805,7 @@ function Marketplace({ opportunities, dj, applications, onApply }: any) {
           </section>
         )}
       </div>
+      {applications.length > 0 && <section className="card workflow-board"><div className="card-title"><h2><Localized text="My applications" /></h2><span>{applications.length}</span></div><div className="workflow-list">{applications.map((application:any)=><article className="workflow-item" key={application.id}><div><b>{application.opportunities?.title || "Opportunity"}</b><small>{application.opportunities?.city || ""} · {new Date(application.created_at).toLocaleDateString()}</small></div><div className="row-actions"><Pill value={application.status}/>{["SUBMITTED","VIEWED","SHORTLISTED"].includes(application.status)&&<button className="button small" onClick={()=>onTransition(application.id,"WITHDRAWN")}><Localized text="Withdraw" /></button>}</div></article>)}</div></section>}
     </>
   );
 }
@@ -1770,6 +1817,8 @@ function PromoterDesk({
   busy,
   onCreateOrganization,
   onCreateOpportunity,
+  applications,
+  onTransition,
 }: any) {
   return (
     <>
@@ -1815,7 +1864,7 @@ function PromoterDesk({
           </button>
         </section>
       ) : (
-        <div className="two-column">
+        <><div className="two-column">
           <section className="card form-card">
             <p className="eyebrow">
               <Localized text="PUBLISH OPPORTUNITY" />
@@ -1882,7 +1931,7 @@ function PromoterDesk({
               />
             )}
           </section>
-        </div>
+        </div><section className="card workflow-board"><div className="card-title"><div><p className="eyebrow"><Localized text="APPLICATION PIPELINE" /></p><h2><Localized text="Review and select artists" /></h2></div><span>{applications.length}</span></div>{applications.length===0?<Empty title="No applications yet" body="Applications will appear here as soon as an artist applies."/>:<div className="workflow-list">{applications.map((application:OpportunityApplication)=><article className="workflow-item application-review" key={application.id}><div><b>{application.dj_profiles?.stage_name || "Artist"}</b><small>{application.opportunities?.title} · {application.dj_profiles?.primary_city || "Location not set"}</small><p>{application.cover_note || "No cover note."}</p></div><div className="workflow-actions"><Pill value={application.status}/>{application.status==="SUBMITTED"&&<><button className="button small" onClick={()=>onTransition(application.id,"VIEWED")} disabled={busy}>Mark viewed</button><button className="button small" onClick={()=>onTransition(application.id,"SHORTLISTED")} disabled={busy}>Shortlist</button></>}{application.status==="VIEWED"&&<button className="button small" onClick={()=>onTransition(application.id,"SHORTLISTED")} disabled={busy}>Shortlist</button>}{application.status==="SHORTLISTED"&&<button className="button primary small" onClick={()=>onTransition(application.id,"SELECTED")} disabled={busy}>Select artist</button>}{["SUBMITTED","VIEWED","SHORTLISTED"].includes(application.status)&&<button className="button small danger" onClick={()=>onTransition(application.id,"DECLINED")} disabled={busy}>Decline</button>}</div></article>)}</div>}</section></>
       )}
     </>
   );
@@ -2077,6 +2126,8 @@ function CommunityDesk({
   busy,
   onCreate,
   onJoin,
+  members,
+  onTransition,
 }: any) {
   return (
     <>
@@ -2131,6 +2182,7 @@ function CommunityDesk({
           </section>
         )}
       </div>
+      {org&&<section className="card workflow-board"><div className="card-title"><div><p className="eyebrow"><Localized text="MEMBERSHIP QUEUE" /></p><h2><Localized text="Review community members" /></h2></div><span>{members.length}</span></div>{members.length===0?<Empty title="No membership requests" body="New applications will appear here for review."/>:<div className="workflow-list">{members.map((member:CommunityMember)=><article className="workflow-item" key={`${member.community_id}-${member.user_id}`}><div><b>{member.profiles?.display_name || "Cuelance member"}</b><small>{member.communities?.name}</small></div><div className="workflow-actions"><Pill value={member.status}/>{member.status==="PENDING"&&<><button className="button primary small" disabled={busy} onClick={()=>onTransition(member.community_id,member.user_id,"ACTIVE")}>Approve</button><button className="button small danger" disabled={busy} onClick={()=>onTransition(member.community_id,member.user_id,"REJECTED")}>Reject</button></>}{member.status==="ACTIVE"&&<button className="button small" disabled={busy} onClick={()=>onTransition(member.community_id,member.user_id,"SUSPENDED")}>Suspend</button>}{member.status==="SUSPENDED"&&<button className="button small" disabled={busy} onClick={()=>onTransition(member.community_id,member.user_id,"ACTIVE")}>Restore</button>}</div></article>)}</div>}</section>}
     </>
   );
 }

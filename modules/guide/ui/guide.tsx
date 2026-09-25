@@ -96,12 +96,16 @@ const workflows = [
     enSteps: [
       "An artist opens Marketplace and applies to a published opportunity after completing their profile. Duplicate applications are rejected.",
       "A promoter creates an organization in Promoter desk, then creates an opportunity with a title and description.",
+      "The promoter reviews the Application pipeline: mark a submission viewed, shortlist it, then select or decline it. Selecting one artist fills the opportunity and closes the remaining active applications.",
+      "Artists can withdraw their own submitted, viewed or shortlisted application from My applications. Every transition is validated by the server.",
       "Visitors submit booking enquiries from a published EPK’s Booking form. Requests become real records in the artist workspace.",
       "For private conversation support, send the booking enquiry while signed in or use an existing opportunity application.",
     ],
     arSteps: [
       "يفتح الفنان سوق الفرص ويتقدم لفرصة منشورة بعد إكمال ملفه. لا تُقبل الطلبات المكررة.",
       "ينشئ المروج مؤسسة في مكتب المروج ثم ينشئ فرصة بعنوان ووصف.",
+      "يراجع المروج مسار الطلبات: يعرض الطلب ثم يضيفه للقائمة المختصرة وبعدها يختار الفنان أو يرفض الطلب. اختيار فنان يملأ الفرصة ويغلق الطلبات النشطة الأخرى.",
+      "يمكن للفنان سحب طلبه المرسل أو المعروض أو المدرج في القائمة المختصرة. يتحقق الخادم من كل انتقال.",
       "يرسل الزوار استفسار حجز من نموذج الحجز في الملف الصحفي المنشور. تظهر الطلبات كسجلات فعلية للفنان.",
       "للمحادثة الخاصة، أرسل استفسار الحجز أثناء تسجيل الدخول أو استخدم طلب فرصة موجوداً.",
     ],

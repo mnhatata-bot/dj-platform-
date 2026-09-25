@@ -46,8 +46,10 @@ Draft changes must be published before they appear in the download.
 
 1. An artist opens Marketplace and applies to a published opportunity after completing their profile. Duplicate applications are rejected.
 2. A promoter creates an organization in Promoter desk, then creates an opportunity with a title and description.
-3. Visitors submit booking enquiries from a published EPK’s Booking form. Requests become real records in the artist workspace.
-4. For private conversation support, send the booking enquiry while signed in or use an existing opportunity application.
+3. The promoter reviews the Application pipeline, marks a submission viewed, shortlists it, then selects or declines it. Selecting an artist fills the opportunity and declines the other active applications.
+4. Artists can withdraw eligible applications from My applications. Application transitions are validated server-side.
+5. Visitors submit booking enquiries from a published EPK’s Booking form. Requests become real records in the artist workspace.
+6. For private conversation support, send the booking enquiry while signed in or use an existing opportunity application.
 
 Example: a 90-minute closing set with the event date and budget in the brief.
 
