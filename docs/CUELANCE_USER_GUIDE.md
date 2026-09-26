@@ -33,6 +33,13 @@ Example: “Based in Riyadh; house and disco sets; Arabic and English; five year
 2. Add a useful description or image alt text. Upload securely. The file is private by default and validated by the server.
 3. Open temporary link previews your private asset. The link expires after 60 seconds; open a new one when needed.
 4. Add to EPK asks permission to make the asset public, then attaches it to Gallery, Music, Video or Downloads. Publish the EPK to update visitors’ view.
+
+## Plan and access
+
+1. Open **Plan & access** from any workspace to see the plan applied to the selected account or organization.
+2. Review the exact server-enforced allowances for EPK templates, publications, AI usage, storage, organizations, team members, marketplace, communities, ticketing, analytics and custom domains.
+3. Usage counters show consumption such as AI requests used today. Expired subscriptions automatically return to Cuelance Free without deleting content.
+4. Until the payment adapter is approved, checkout remains disabled and platform administrators assign trials or plans through the secured subscription service.
 5. Make private withdraws public access. Previously issued temporary links may remain valid until their short expiry.
 
 Example: press-photo.jpg with alt text “Motata performing on stage in Riyadh.”

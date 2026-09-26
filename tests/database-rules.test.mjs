@@ -67,6 +67,7 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await db.exec("alter table public.events enable row level security; alter table public.ticket_types enable row level security;");
     await db.exec(readFileSync(new URL('../supabase/migrations/20260925114743_event_visibility_and_staff_boundaries.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260925115248_provider_admin_visibility_and_rpc_grants.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../supabase/migrations/20260926112000_subscription_entitlements.sql',import.meta.url),'utf8'));
     const admin = "10000000-0000-4000-8000-000000000001",
       a = "10000000-0000-4000-8000-000000000002",
       b = "10000000-0000-4000-8000-000000000003";
@@ -347,6 +348,18 @@ test("New module migrations enforce member/admin boundaries and validation", asy
       1,
     );
     assert.ok(rfqId);
+    const freeAccess=(await db.query("select entitlement_snapshot(null) as access")).rows[0].access;
+    assert.equal(freeAccess.plan,"FREE");
+    assert.equal(freeAccess.entitlements["ai.daily"],20);
+    await assert.rejects(db.query("select entitlement_snapshot($1)",["90000000-0000-4000-8000-000000000001"]),/Organization access denied/);
+    await act(b);
+    await assert.rejects(db.query("select admin_set_subscription($1,null,'ARTIST_PRO','ACTIVE',null)",[b]),/Permission denied/);
+    await act(admin);
+    await db.query("select admin_set_subscription($1,null,'ARTIST_PRO','ACTIVE',now()+interval '30 days')",[a]);
+    await act(a);
+    const proAccess=(await db.query("select entitlement_snapshot(null) as access")).rows[0].access;
+    assert.equal(proAccess.plan,"ARTIST_PRO");
+    assert.equal(proAccess.entitlements["epk.templates"],5);
     for (let i = 0; i < 3; i++)
       await db.query("select begin_ai_request('GENERATE_BIO')");
     await assert.rejects(

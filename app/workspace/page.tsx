@@ -22,6 +22,7 @@ const MediaLibrary = dynamic(() => import("@/modules/media/ui/library"));
 const Inbox = dynamic(() => import("@/modules/messaging/ui/inbox"));
 const AdminConsole = dynamic(() => import("@/modules/admin/ui/console"));
 const EpkSectionEditor = dynamic(() => import("@/modules/epk/ui/section-editor"));
+const PlanAccess = dynamic(() => import("@/modules/subscriptions/ui/plan-access"));
 
 const MyInquiries = dynamic(() => import("@/modules/providers/ui/inquiries"));
 const ProviderEditor = dynamic(() => import("@/modules/providers/ui/editor"));
@@ -189,7 +190,8 @@ type Tab =
   | "messages"
   | "admin"
   | "wallet"
-  | "guide";
+  | "guide"
+  | "plans";
 
 const PLATFORM_DOMAIN = "cuelance.com";
 const paymentProviderConfigured = false;
@@ -1196,6 +1198,7 @@ export default function AccountWorkspace() {
   const activeWorkspace = workspaceDefs[activeRole];
   const nav = allNav.filter((item) => activeWorkspace.nav.includes(item.id) && (item.id !== "admin" || canAdmin));
   if (activeRole !== "fan" && activeRole !== "admin") nav.splice(1, 0, {id:"publicpage",label:t("page.title")});
+  nav.push({id:"plans",label:"Plan & access",tag:"ACCESS"});
   nav.push({id:"inquiries",label:t("page.myInquiries")});
   function switchRole(role: RoleOS) {
     setActiveRole(role);
@@ -1415,6 +1418,7 @@ export default function AccountWorkspace() {
             />
           )}
           {tab === "messages" && <Inbox />}
+          {tab === "plans" && <PlanAccess organizationId={org?.id} />}
           {tab === "admin" && <AdminConsole />}
           {tab === "guide" && <CompleteGuide />}
         </main>

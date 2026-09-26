@@ -10,6 +10,8 @@ Added booking operations: artist Kanban for NEW, CONTACTED, NEGOTIATING, CONFIRM
 
 Added the complete structured EPK content editor: guided fields for all twelve core sections, section-specific facts and HTTPS links, public/private visibility, a detailed technical and hospitality rider, and consistent rendering in the live EPK and generated PDF. Existing attached media is retained.
 
+Added provider-neutral plans and entitlement enforcement: normalized plan/subscription/override records, account and organization ownership boundaries, expiry fallback, administrator-only assignment with audit records, plan-aware AI quotas, usage snapshots and a guided Plan & access interface. Payment checkout remains intentionally disconnected until a provider is approved.
+
 Database migrations applied to the connected Supabase project: provider_pages_and_offerings, event_visibility_and_staff_boundaries, provider_admin_visibility_and_rpc_grants. All new tables use RLS and explicit grants. Customers cannot change inquiry identity or provider replies. Scanner membership cannot edit events. Anonymous access to authenticated operational/admin RPCs was revoked.
 
 Validation: TypeScript and production build passed. PostgreSQL tests cover provider ownership, draft/public visibility, private event access, scanner edit denial, inquiry identity protection, and the pre-existing module rules. A live transactional save was executed and rolled back; grants were checked. Public browser/deployment acceptance is recorded after deployment. No full authenticated browser regression or physical camera test has been completed for this release.
