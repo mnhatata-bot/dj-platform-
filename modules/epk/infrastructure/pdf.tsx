@@ -111,6 +111,8 @@ export async function renderEpkPdf(document: PublishedDocument) {
               {section.content_json?.text && (
                 <Copy>{section.content_json.text}</Copy>
               )}
+              {section.content_json?.facts?.map((fact) => <View key={`${fact.label}-${fact.value}`} style={{display:"flex",flexDirection:"row",gap:8,marginTop:4}}><Text style={{fontSize:9,color:accent,width:105}}>{fact.label}</Text><Copy size={9}>{fact.value}</Copy></View>)}
+              {section.content_json?.links?.map((link) => <Link key={`${link.label}-${link.url}`} src={link.url} style={{fontSize:9,color:accent,marginTop:5}}>{link.label} / {link.url}</Link>)}
               {section.content_json?.asset_ids?.map((id) => (
                 <Link
                   key={id}

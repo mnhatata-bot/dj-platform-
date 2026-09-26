@@ -9,8 +9,11 @@ Release note: this guide describes the new implementation. Deployment and device
 ## 1. Artist profile and EPK
 
 1. Open Artist profile. Enter stage name, genre, city, country and a factual biography. Save the profile.
-2. Open EPK studio. Choose Underground, Minimal, Festival, Luxury or Experimental. Save the draft and enable the sections you need.
-3. Use Media library to attach files. Return to EPK studio and Publish EPK. Open live EPK to confirm the published version.
+2. Open EPK studio. Choose Underground, Minimal, Festival, Luxury or Experimental, then create or save the EPK.
+3. Open each content section and complete its guided fields. The editor supports hero positioning, long biography, music and release links, performance video, press gallery, career highlights, press/testimonials, selected events, social/audience facts, downloads, booking representation and a full technical/hospitality rider.
+4. For structured details, enter `Label | Value`, one item per line. For active links, enter `Label | https://...`. Each section can remain private or be included in the public EPK and PDF.
+5. The technical rider covers performance setup, mixer, players/decks, turntables, booth monitors, microphones, stage/booth, power, connections, soundcheck, set duration, changeover, hospitality, transport, flights, accommodation, guest list and operational contacts.
+6. Use Media library to attach photography, audio, video, PDF and ZIP files to the appropriate section. Return to EPK studio and Publish EPK. Open the live EPK and PDF to confirm the published version.
 4. Changing your profile or draft does not update the live snapshot until you publish again.
 
 Example: Motata, Tech House, Riyadh, with a short factual career summary.

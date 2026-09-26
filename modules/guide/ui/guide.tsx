@@ -15,8 +15,11 @@ const workflows = [
     ar: "١. ملف الفنان والملف الصحفي",
     enSteps: [
       "Open Artist profile. Enter stage name, genre, city, country and a factual biography. Save the profile.",
-      "Open EPK studio. Choose Underground, Minimal, Festival, Luxury or Experimental. Save the draft and enable the sections you need.",
-      "Use Media library to attach files. Return to EPK studio and Publish EPK. Open live EPK to confirm the published version.",
+      "Open EPK studio. Choose Underground, Minimal, Festival, Luxury or Experimental, then create or save the EPK.",
+      "Open each content section and complete the guided hero, biography, music, video, gallery, highlights, press, events, social, downloads, rider and booking fields.",
+      "Enter structured details as Label | Value and active links as Label | https://..., one item per line. Set each section to public or private.",
+      "Complete the technical and hospitality rider: setup, mixer, decks, monitors, microphones, stage, power, connections, soundcheck, set duration, changeover, hospitality, travel, accommodation, guest list and contacts.",
+      "Use Media library to attach photography, audio, video, PDF and ZIP files. Publish, then inspect both the live EPK and generated PDF.",
       "Changing your profile or draft does not update the live snapshot until you publish again.",
     ],
     arSteps: [

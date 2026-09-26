@@ -28,7 +28,7 @@ type PublicSection = {
   enabled: boolean;
   sort_order: number;
   visibility: string;
-  content_json?: { heading?: string; text?: string; asset_ids?: string[] };
+  content_json?: { heading?: string; text?: string; asset_ids?: string[]; links?: { label: string; url: string }[]; facts?: { label: string; value: string }[] };
 };
 
 type PublicEpk = {
@@ -399,7 +399,7 @@ export default function PublicEpkPage() {
       )}
       {visibleSections
         .filter(
-          (s) => s.content_json?.text || s.content_json?.asset_ids?.length,
+          (s) => s.content_json?.text || s.content_json?.asset_ids?.length || s.content_json?.facts?.length || s.content_json?.links?.length,
         )
         .map((section) => (
           <section className="public-media-section" key={section.id}>
@@ -409,6 +409,8 @@ export default function PublicEpkPage() {
                 section.type}
             </h2>
             <p dir="auto">{section.content_json?.text}</p>
+            {!!section.content_json?.facts?.length && <dl className="public-epk-facts">{section.content_json.facts.map((fact) => <div key={`${fact.label}-${fact.value}`}><dt>{fact.label}</dt><dd dir="auto">{fact.value}</dd></div>)}</dl>}
+            {!!section.content_json?.links?.length && <div className="public-links">{section.content_json.links.filter((link) => isSafeExternalUrl(link.url)).map((link) => <a key={`${link.label}-${link.url}`} href={link.url} target="_blank" rel="noreferrer">{link.label} ↗</a>)}</div>}
             <div className="public-media-grid">
               {section.content_json?.asset_ids?.map((id) => (
                 <PublicAsset id={id} key={id} />

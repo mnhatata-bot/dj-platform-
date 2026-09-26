@@ -21,6 +21,7 @@ const Writer = dynamic(() => import("@/modules/ai/ui/writer"));
 const MediaLibrary = dynamic(() => import("@/modules/media/ui/library"));
 const Inbox = dynamic(() => import("@/modules/messaging/ui/inbox"));
 const AdminConsole = dynamic(() => import("@/modules/admin/ui/console"));
+const EpkSectionEditor = dynamic(() => import("@/modules/epk/ui/section-editor"));
 
 const MyInquiries = dynamic(() => import("@/modules/providers/ui/inquiries"));
 const ProviderEditor = dynamic(() => import("@/modules/providers/ui/editor"));
@@ -52,6 +53,7 @@ type Epk = {
   locale: string;
   theme: Record<string, string> | null;
 };
+type EpkSection = { id: string; type: string; enabled: boolean; visibility: string; sort_order: number; content_json?: { heading?: string; text?: string; asset_ids?: string[]; links?: { label: string; url: string }[]; facts?: { label: string; value: string }[] } };
 type Opportunity = {
   id: string;
   title: string;
@@ -395,9 +397,7 @@ export default function AccountWorkspace() {
   const [organizations,setOrganizations] = useState<Org[]>([]);
   const [canAdmin,setCanAdmin] = useState(false);
   const [epk, setEpk] = useState<Epk | null>(null);
-  const [sections, setSections] = useState<
-    { id: string; type: string; enabled: boolean; sort_order: number }[]
-  >([]);
+  const [sections, setSections] = useState<EpkSection[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [managedApplications, setManagedApplications] = useState<OpportunityApplication[]>([]);
@@ -581,7 +581,7 @@ export default function AccountWorkspace() {
         setTheme((currentEpk as Epk).template_id);
         const { data: currentSections } = await supabase
           .from("epk_sections")
-          .select("id,type,enabled,sort_order")
+          .select("id,type,enabled,visibility,sort_order,content_json")
           .eq("epk_id", (currentEpk as Epk).id)
           .order("sort_order");
         setSections(currentSections ?? []);
@@ -1318,6 +1318,7 @@ export default function AccountWorkspace() {
               onSave={saveEpk}
               onPublish={publishEpk}
               onToggle={toggleSection}
+              onRefresh={() => { void load(); }}
             />
           )}
           {tab === "marketplace" && (
@@ -1630,6 +1631,7 @@ function EpkStudio({
   onSave,
   onPublish,
   onToggle,
+  onRefresh,
 }: any) {
   const selected = templates.find((item) => item.id === theme)!;
   const { t } = useLocale();
@@ -1737,6 +1739,7 @@ function EpkStudio({
           </p>
         </section>
       </div>
+      {epk && <EpkSectionEditor sections={sections} onSaved={onRefresh} />}
     </>
   );
 }
