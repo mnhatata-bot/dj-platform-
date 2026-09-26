@@ -18,7 +18,7 @@ export async function POST(request:Request){
  const resource=payload.resource||{};const supplementary=resource.supplementary_data as {related_ids?:{order_id?:string}}|undefined;const amount=resource.amount as {value?:string;currency_code?:string}|undefined;
  const eventId=payload.id;const orderId=supplementary?.related_ids?.order_id;const captureId=typeof resource.id==="string"?resource.id:undefined;
  if(!eventId||!orderId||!captureId||!amount?.value||!amount.currency_code)return Response.json({error:"Incomplete event"},{status:400});
- const {error}=await adminDatabase().rpc("complete_verified_payment",{p_provider:"PAYPAL",p_event_id:eventId,p_event_type:eventType,p_order_id:orderId,p_capture_id:captureId,p_amount:Number(amount.value),p_currency:amount.currency_code,p_payload:payload});
+ const admin=adminDatabase();const {data:checkout}=await admin.from("payment_checkouts").select("purpose").eq("provider","PAYPAL").eq("provider_order_id",orderId).maybeSingle();const completion=checkout?.purpose==="PROVIDER_ORDER"?await admin.rpc("complete_provider_order_payment",{p_order_id:orderId,p_capture_id:captureId,p_amount:Number(amount.value),p_currency:amount.currency_code,p_payload:payload}):await admin.rpc("complete_verified_payment",{p_provider:"PAYPAL",p_event_id:eventId,p_event_type:eventType,p_order_id:orderId,p_capture_id:captureId,p_amount:Number(amount.value),p_currency:amount.currency_code,p_payload:payload});const error=completion.error;
  if(error)return Response.json({error:"Event processing failed"},{status:500});
  return Response.json({received:true,processed:true});
 }

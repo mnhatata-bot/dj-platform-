@@ -48,6 +48,13 @@ const resources = [
   "provider_pages",
   "provider_offerings",
   "provider_inquiries",
+  "provider_catalogs",
+  "provider_attribute_definitions",
+  "provider_offering_variants",
+  "provider_offering_availability",
+  "provider_orders",
+  "provider_order_history",
+  "provider_order_deliverables",
 ];
 const roles = [
   "USER",

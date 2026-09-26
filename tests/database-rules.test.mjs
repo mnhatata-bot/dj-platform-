@@ -71,6 +71,7 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926112000_subscription_entitlements.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926181542_provider_neutral_payments.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926182554_paid_ticket_lifecycle.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../supabase/migrations/20260926192052_provider_commerce_fulfillment.sql',import.meta.url),'utf8'));
     const admin = "10000000-0000-4000-8000-000000000001",
       a = "10000000-0000-4000-8000-000000000002",
       b = "10000000-0000-4000-8000-000000000003";
@@ -400,6 +401,16 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await db.exec("reset role; set role service_role");await db.query("select complete_ticket_refund($1,'REFUND-1',$2)",[refund.id,{status:"COMPLETED"}]);await db.exec("reset role");
     assert.equal((await db.query("select status from tickets where id=$1",[issued.id])).rows[0].status,"REFUNDED");
     assert.equal((await db.query("select quantity_sold from ticket_types where id=$1",[paidType])).rows[0].quantity_sold,0);
+    await act(a);await db.query("update provider_pages set status='PUBLISHED' where id=$1",[pageId]);await db.query("update provider_offerings set inventory_mode='TRACKED',stock_quantity=5,minimum_quantity=1,maximum_quantity=5 where id=$1",[offeringId]);
+    const catalog=(await db.query("insert into provider_catalogs(provider_id,name,status) values($1,'Venue rentals','ACTIVE') returning id",[pageId])).rows[0].id;
+    const attribute=(await db.query("insert into provider_attribute_definitions(provider_id,key,label,data_type,unit) values($1,'capacity','Guest capacity','NUMBER','people') returning id",[pageId])).rows[0].id;
+    await db.query("insert into provider_offering_attribute_values values($1,$2,$3)",[offeringId,attribute,300]);await db.query("insert into provider_offering_variants(offering_id,sku,title,price_delta,stock_quantity) values($1,'FULL-DAY','Full day',500,2)",[offeringId]);
+    await act(b);const providerOrder=(await db.query("select create_provider_order($1,1,'Venue rental for a private electronic event.','Riyadh',now()+interval '10 days',now()+interval '11 days') as id",[offeringId])).rows[0].id;
+    await act(a);await db.query("select provider_quote_order($1,2500,375,1000,'Includes setup and venue operations')",[providerOrder]);
+    await act(b);await db.query("select customer_order_action($1,'ACCEPT','Approved')",[providerOrder]);
+    const commerceCheckout=(await db.query("select (begin_provider_order_checkout($1,$2)).*",[providerOrder,"a0000000-0000-4000-8000-000000000003"])).rows[0];assert.equal(Number(commerceCheckout.amount),1000);
+    await db.exec("reset role;set role service_role");await db.query("update payment_checkouts set provider_order_id='PAYPAL-PROVIDER-1',status='PROVIDER_PENDING' where id=$1",[commerceCheckout.id]);await db.query("select complete_provider_order_payment('PAYPAL-PROVIDER-1','CAPTURE-PROVIDER-1',1000,'SAR',$1)",[{verified:true}]);await db.exec("reset role");
+    assert.equal((await db.query("select status from provider_orders where id=$1",[providerOrder])).rows[0].status,"DEPOSIT_PAID");assert.ok(catalog);
     for (let i = 0; i < 3; i++)
       await db.query("select begin_ai_request('GENERATE_BIO')");
     await assert.rejects(
