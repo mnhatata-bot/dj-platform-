@@ -23,6 +23,7 @@ const Inbox = dynamic(() => import("@/modules/messaging/ui/inbox"));
 const AdminConsole = dynamic(() => import("@/modules/admin/ui/console"));
 const EpkSectionEditor = dynamic(() => import("@/modules/epk/ui/section-editor"));
 const PlanAccess = dynamic(() => import("@/modules/subscriptions/ui/plan-access"));
+const TicketReconciliation = dynamic(() => import("@/modules/ticketing/ui/reconciliation"));
 
 const MyInquiries = dynamic(() => import("@/modules/providers/ui/inquiries"));
 const ProviderEditor = dynamic(() => import("@/modules/providers/ui/editor"));
@@ -968,7 +969,7 @@ export default function AccountWorkspace() {
     if (!user) return;
     if (Number(ticket.price) > 0)
       return tell(
-        "Paid ticket checkout is unavailable until Cuelance has a verified payment provider.",
+        "Paid tickets must be purchased from the public event page through verified checkout.",
       );
     const { data, error } = await supabase.rpc("reserve_ticket", {
       p_ticket_type: ticket.id,
@@ -2097,7 +2098,7 @@ function EventsDesk({
             </div>
             {!paymentProviderConfigured && (
               <div className="module-note">
-                <Localized text="Paid ticket checkout is intentionally disabled until Cuelance connects a verified payment provider. Complimentary tickets remain available and are issued as real credentials." />{" "}
+                Paid checkout appears on the public event page when the merchant is configured. Inventory is held for 15 minutes and issued only after verified payment.
               </div>
             )}
             {ticketTypes.length ? (
@@ -2122,7 +2123,7 @@ function EventsDesk({
                       </button>
                     ) : (
                       <span className="pill">
-                        <Localized text="Checkout pending provider" />
+                        Public secure checkout
                       </span>
                     )}
                   </div>
@@ -2135,6 +2136,7 @@ function EventsDesk({
               />
             )}
           </section>
+          {ownedEvents.length>0&&<TicketReconciliation events={ownedEvents.map((event:EventItem)=>({id:event.id,title:event.title}))}/>}
         </>
       )}
     </>
@@ -2665,7 +2667,7 @@ function GuideDesk({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
           <Localized text="Current operating boundaries" />
         </h3>
         <p>
-          <Localized text="Paid checkout is deliberately unavailable until a verified payment provider is connected. Offline admission is not enabled. See the complete guide for camera scanning, PDF downloads, media uploads, AI writing, Arabic, messaging and administration." />{" "}
+          Paid checkout, refunds, transfers and reconciliation are available when the merchant is configured. Offline admission is not enabled. See the complete guide for camera scanning, PDF downloads, media uploads, AI writing, Arabic, messaging and administration.
         </p>
       </section>
     </>
@@ -2831,7 +2833,7 @@ const fieldHelp: Record<string, { tip: string; example: string }> = {
     example: "Example: General Admission",
   },
   "Price (SAR)": {
-    tip: "Set 0 for a complimentary, testable ticket. Paid checkout stays unavailable until payment setup is complete.",
+    tip: "Set 0 for a complimentary ticket. Paid checkout appears on the public event page when the merchant is configured.",
     example: "Example: 0 for a guest-list ticket",
   },
   Capacity: {

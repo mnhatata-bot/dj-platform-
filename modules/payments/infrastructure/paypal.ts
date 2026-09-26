@@ -3,6 +3,7 @@ import type { CheckoutRequest, HostedCheckout, PaymentProvider } from "@/modules
 type PayPalLink={rel:string;href:string};
 type PayPalOrder={id:string;links?:PayPalLink[]};
 export type PayPalCapture={id:string;status:string;purchase_units?:Array<{payments?:{captures?:Array<{id:string;status:string;amount:{value:string;currency_code:string}}>} }>};
+export type PayPalRefund={id:string;status:string;amount?:{value:string;currency_code:string}};
 
 export class PayPalProvider implements PaymentProvider {
   readonly code="PAYPAL";
@@ -28,6 +29,12 @@ export class PayPalProvider implements PaymentProvider {
     const response=await fetch(`${this.base}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`,{method:"POST",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":"application/json","PayPal-Request-Id":`capture-${orderId}`},body:"{}",cache:"no-store"});
     if(!response.ok)throw new Error("PAYMENT_CAPTURE_FAILED");
     return response.json() as Promise<PayPalCapture>;
+  }
+  async refund(captureId:string,amount:string,currency:string,requestId:string):Promise<PayPalRefund>{
+    const accessToken=await this.token();
+    const response=await fetch(`${this.base}/v2/payments/captures/${encodeURIComponent(captureId)}/refund`,{method:"POST",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":"application/json","PayPal-Request-Id":requestId},body:JSON.stringify({amount:{value:amount,currency_code:currency}}),cache:"no-store"});
+    if(!response.ok)throw new Error("PAYMENT_REFUND_FAILED");
+    return response.json() as Promise<PayPalRefund>;
   }
   async verifyWebhook(request:Request,payload:unknown){
     const webhookId=process.env.PAYPAL_WEBHOOK_ID;if(!webhookId)return false;

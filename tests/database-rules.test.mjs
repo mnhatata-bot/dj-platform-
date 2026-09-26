@@ -11,6 +11,7 @@ test("New module migrations enforce member/admin boundaries and validation", asy
  create role anon; create role authenticated; create role service_role bypassrls;
  create schema auth; create schema private; create schema storage;
  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+ create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb) $$;
  grant usage on schema public,auth,storage to anon,authenticated;
  create table public.profiles(id uuid primary key,display_name text,avatar_url text,locale text default 'en',is_suspended boolean default false);
  create table public.user_roles(user_id uuid,role_code text,primary key(user_id,role_code));
@@ -29,7 +30,7 @@ test("New module migrations enforce member/admin boundaries and validation", asy
  create table public.communities(id uuid primary key,name text,description text,visibility text,membership_mode text,status text);
  create table public.community_members(id uuid,community_id uuid,user_id uuid,status text);
  create table public.ticket_types(id uuid primary key,event_id uuid,status text,approval_required boolean default false,sales_start timestamptz,sales_end timestamptz);
- create table public.ticket_orders(id uuid);
+ create table public.ticket_orders(id uuid primary key);
  create table public.tickets(id uuid primary key,status text,credential_token uuid);
  create table public.checkins(id uuid,scanner_user_id uuid,checked_in_at timestamptz);
  create table public.feature_flags(key text primary key,enabled boolean,updated_at timestamptz default now());
@@ -69,6 +70,7 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await db.exec(readFileSync(new URL('../supabase/migrations/20260925115248_provider_admin_visibility_and_rpc_grants.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926112000_subscription_entitlements.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926181542_provider_neutral_payments.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../supabase/migrations/20260926182554_paid_ticket_lifecycle.sql',import.meta.url),'utf8'));
     const admin = "10000000-0000-4000-8000-000000000001",
       a = "10000000-0000-4000-8000-000000000002",
       b = "10000000-0000-4000-8000-000000000003";
@@ -375,6 +377,29 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await act(b);
     assert.equal((await db.query("select * from payment_checkouts")).rows.length,0);
     await assert.rejects(db.query("insert into payment_checkouts(user_id,purpose,provider,amount,currency,plan_code) values($1,'SUBSCRIPTION','PAYPAL',1,'SAR','ARTIST_PRO')",[b]),/permission denied/);
+    await db.exec("reset role");
+    const paidEvent="72000000-0000-4000-8000-000000000001",paidType="73000000-0000-4000-8000-000000000001";
+    await db.query("insert into events(id,organization_id,title,status,visibility,starts_at,approval_required) values($1,$2,'Paid fixture','PUBLISHED','PUBLIC',now()+interval '7 days',false)",[paidEvent,org]);
+    await db.query("insert into ticket_types(id,event_id,status,price,currency,capacity,quantity_sold,quantity_reserved,approval_required) values($1,$2,'ACTIVE',125,'SAR',1,0,0,false)",[paidType,paidEvent]);
+    await act(a);await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({email:"buyer@example.com"})]);
+    const ticketCheckoutKey="a0000000-0000-4000-8000-000000000002";
+    const paidCheckout=(await db.query("select (begin_paid_ticket_checkout($1,'buyer@example.com',$2)).*",[paidType,ticketCheckoutKey])).rows[0];
+    assert.equal(Number(paidCheckout.amount),125);assert.equal((await db.query("select quantity_reserved from ticket_types where id=$1",[paidType])).rows[0].quantity_reserved,1);
+    await db.exec("reset role; set role service_role");
+    await db.query("update payment_checkouts set provider_order_id='PAYPAL-TICKET-1',status='PROVIDER_PENDING' where id=$1",[paidCheckout.id]);
+    await db.query("select complete_verified_payment('PAYPAL','EVENT-TICKET-1','PAYMENT.CAPTURE.COMPLETED','PAYPAL-TICKET-1','CAPTURE-TICKET-1',125,'SAR',$1)",[{verified:true}]);
+    await db.exec("reset role");
+    const inventory=(await db.query("select quantity_sold,quantity_reserved from ticket_types where id=$1",[paidType])).rows[0];assert.equal(inventory.quantity_sold,1);assert.equal(inventory.quantity_reserved,0);
+    const issued=(await db.query("select id,holder_user_id from tickets where event_id=$1",[paidEvent])).rows[0];assert.equal(issued.holder_user_id,a);
+    await act(a);await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({email:"buyer@example.com"})]);
+    const transferToken=(await db.query("select request_ticket_transfer($1,'recipient@example.com') as token",[issued.id])).rows[0].token;
+    await act(b);await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({email:"recipient@example.com"})]);
+    await db.query("select accept_ticket_transfer($1)",[transferToken]);
+    const transferred=(await db.query("select holder_user_id,status from tickets where id=$1",[issued.id])).rows[0];assert.equal(transferred.holder_user_id,b);assert.equal(transferred.status,"ACTIVE");assert.equal((await db.query("select auth.uid() as id")).rows[0].id,b);
+    const refund=(await db.query("select (request_ticket_refund($1,'Schedule conflict')).*",[issued.id])).rows[0];
+    await db.exec("reset role; set role service_role");await db.query("select complete_ticket_refund($1,'REFUND-1',$2)",[refund.id,{status:"COMPLETED"}]);await db.exec("reset role");
+    assert.equal((await db.query("select status from tickets where id=$1",[issued.id])).rows[0].status,"REFUNDED");
+    assert.equal((await db.query("select quantity_sold from ticket_types where id=$1",[paidType])).rows[0].quantity_sold,0);
     for (let i = 0; i < 3; i++)
       await db.query("select begin_ai_request('GENERATE_BIO')");
     await assert.rejects(

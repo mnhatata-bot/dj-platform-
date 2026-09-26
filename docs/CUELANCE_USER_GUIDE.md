@@ -67,9 +67,10 @@ Example: a 90-minute closing set with the event date and budget in the brief.
 ## 6. Events, tickets and wallet
 
 1. Create an organization, then open Events & tickets. Enter event title, venue and start time; publish the event.
-2. Select the event and add a ticket type with capacity. Set price to 0 for complimentary tickets. Paid checkout remains unavailable pending a payment provider.
-3. Issue a complimentary ticket. Your Ticket wallet opens with the issued QR, event and ticket state.
-4. Keep ticket QR codes private. Do not share screenshots: whoever presents a valid credential first can use it.
+2. Select the event and add a ticket type with capacity. Set price to 0 for complimentary tickets. When the merchant is configured, paid tickets reserve inventory for 15 minutes and issue only after verified payment.
+3. Open Ticket wallet to see the issued QR, event and ticket state. Active passes can be transferred to a verified recipient; complimentary passes can be cancelled and paid passes can request a refund before the event.
+4. Event managers can open ticket finance and reconciliation to review completed, pending and refunded orders with gross, refunded and net values.
+5. Keep ticket QR codes private. Do not share screenshots: whoever presents a valid credential first can use it.
 
 Example: Opening Night → General Admission → SAR 0 → capacity 100.
 
