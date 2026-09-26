@@ -9,6 +9,10 @@ const workflows = [
  enSteps:["In Events & tickets, add a title, venue, local date, event description and cover photo, then publish.","Open the event card to see the public /events/address page. Share this page with attendees.","Activate ticket types. Customers sign in and reserve a complimentary ticket from the event page. Paid checkout stays unavailable until a payment provider is connected.","Open Ticket wallet. Each pass shows the event cover, venue, date in the event timezone, status and secure QR. Use Print ticket for a paper copy.","Keep the QR private. Checked-in, cancelled, refunded and revoked tickets do not display an admission QR. Staff still validate every admission online."],
  arSteps:["أضف العنوان والمكان والتاريخ والوصف والغلاف في الفعاليات والتذاكر ثم انشر.","افتح بطاقة الفعالية لعرض صفحتها العامة ومشاركتها مع الحضور.","فعّل أنواع التذاكر. يسجل العميل الدخول ويحجز تذكرة مجانية من صفحة الفعالية. الدفع غير متاح حتى ربط مزود الدفع.","افتح محفظة التذاكر لعرض الغلاف والمكان والتوقيت والحالة والرمز. استخدم طباعة التذكرة لنسخة ورقية.","حافظ على خصوصية الرمز. لا تعرض التذاكر المستخدمة أو الملغاة أو المستردة أو المسحوبة رمز دخول. يتحقق الموظف من الدخول عبر الإنترنت."],
  example:["Example: Upload an event poster once; it appears on the event page and the attendee's ticket.","مثال: ارفع ملصق الفعالية مرة واحدة ليظهر في صفحتها وتذكرة الحضور."]},
+ {en:"Plans, usage and access",ar:"الخطط والاستخدام والصلاحيات",
+ enSteps:["Open Plan & access from any workspace. The selected organization is used when one is active; otherwise the page shows your account plan.","Review the server-enforced limits for templates, publication versions, AI, storage, organizations, team members, marketplace, communities, ticketing, analytics and custom domains.","Usage counters show consumption such as AI requests today. An expired plan automatically falls back to Cuelance Free without deleting profiles, media, EPKs or operational records.","Paid plan buttons remain disabled until Cuelance connects an approved payment provider. Platform administrators can assign a trial or plan through the protected subscription service, and every change is audited."],
+ arSteps:["افتح الخطط والصلاحيات من أي مساحة عمل. عند اختيار مؤسسة تظهر خطتها، وإلا تظهر خطة حسابك.","راجع الحدود التي يفرضها الخادم للقوالب ونسخ النشر والذكاء الاصطناعي والتخزين والمؤسسات وأعضاء الفريق والسوق والمجتمعات والتذاكر والتحليلات والنطاق المخصص.","تعرض مؤشرات الاستخدام الاستهلاك مثل طلبات الذكاء الاصطناعي اليوم. تعود الخطة المنتهية تلقائياً إلى المجانية من دون حذف الملفات أو الوسائط أو السجلات.","تبقى أزرار الدفع معطلة حتى ربط مزود دفع معتمد. يمكن لمسؤول المنصة تعيين تجربة أو خطة عبر خدمة محمية، ويسجل كل تغيير في سجل التدقيق."],
+ example:["Example: Artist Pro shows five EPK templates, 100 daily AI requests and advanced analytics.","مثال: تعرض خطة الفنان الاحترافية خمسة قوالب و100 طلب ذكاء اصطناعي يومياً وتحليلات متقدمة."]},
 
   {
     en: "1. Artist profile and EPK",
@@ -40,13 +44,13 @@ const workflows = [
       "Open AI writing and select the task: biography, shortening, tone, promoter/festival/brand bio, translation, grammar, SEO or career summary.",
       "Enter 10–6,000 characters of source facts. Select English or Arabic and optionally describe the tone.",
       "Generate draft. Review and edit every claim. Use in artist profile copies the text to the form; save the profile separately.",
-      "Generated text is never published automatically. If the provider is unavailable, keep editing manually. Usage is limited to 3 requests per minute and 20 per day.",
+      "Generated text is never published automatically. If the provider is unavailable, keep editing manually. Usage is limited to 3 requests per minute and the daily allowance shown in Plan & access.",
     ],
     arSteps: [
       "افتح الكتابة بالذكاء الاصطناعي واختر المهمة: نبذة أو اختصار أو أسلوب أو ترجمة أو تصحيح أو وصف لمحركات البحث أو ملخص مسيرة.",
       "أدخل من 10 إلى 6000 حرف من الحقائق واختر العربية أو الإنجليزية والأسلوب إن رغبت.",
       "أنشئ المسودة ثم راجع كل معلومة وعدّلها. استخدام في ملف الفنان ينقل النص للنموذج؛ احفظ الملف بشكل منفصل.",
-      "لا يُنشر النص تلقائياً. عند تعذر المزود تابع التحرير يدوياً. الحد 3 طلبات في الدقيقة و20 يومياً.",
+      "لا يُنشر النص تلقائياً. عند تعذر المزود تابع التحرير يدوياً. الحد 3 طلبات في الدقيقة والحد اليومي الظاهر في الخطط والصلاحيات.",
     ],
     example: [
       "Example: “Based in Riyadh; house and disco sets; Arabic and English; five years of experience.”",
