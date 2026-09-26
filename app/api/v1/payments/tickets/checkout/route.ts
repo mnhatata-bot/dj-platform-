@@ -2,10 +2,11 @@ import { z } from "zod";
 import { authenticate, apiError } from "@/lib/server-auth";
 import { adminDatabase } from "@/lib/server-admin";
 import { paypal } from "@/modules/payments/infrastructure/paypal";
+import { paymentCheckoutAvailable } from "@/modules/payments/application/availability";
 export const runtime="nodejs";
 const Input=z.object({ticketTypeId:z.string().uuid(),buyerEmail:z.string().email(),idempotencyKey:z.string().uuid(),returnPath:z.string().regex(/^\/[A-Za-z0-9/_?&=.-]*$/)});
 export async function POST(request:Request){try{
- if(!paypal.configured())return Response.json({error:"Payment checkout is not configured yet."},{status:503});
+ if(!await paymentCheckoutAvailable(paypal))return Response.json({error:"Payments are disabled during the controlled beta."},{status:503});
  const input=Input.parse(await request.json());const {db}=await authenticate(request);
  const {data,error}=await db.rpc("begin_paid_ticket_checkout",{p_ticket_type:input.ticketTypeId,p_buyer_email:input.buyerEmail,p_idempotency:input.idempotencyKey});
  if(error)throw error;const checkout=Array.isArray(data)?data[0]:data;if(!checkout)throw new Error("CHECKOUT_NOT_CREATED");

@@ -12,6 +12,7 @@ test("New module migrations enforce member/admin boundaries and validation", asy
  create schema auth; create schema private; create schema storage;
  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb) $$;
+ create table auth.users(id uuid primary key,email text);
  grant usage on schema public,auth,storage to anon,authenticated;
  create table public.profiles(id uuid primary key,display_name text,avatar_url text,locale text default 'en',is_suspended boolean default false);
  create table public.user_roles(user_id uuid,role_code text,primary key(user_id,role_code));
@@ -72,6 +73,7 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926181542_provider_neutral_payments.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926182554_paid_ticket_lifecycle.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926192052_provider_commerce_fulfillment.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../supabase/migrations/20260926202105_controlled_beta_notifications.sql',import.meta.url),'utf8'));
     const admin = "10000000-0000-4000-8000-000000000001",
       a = "10000000-0000-4000-8000-000000000002",
       b = "10000000-0000-4000-8000-000000000003";
@@ -84,6 +86,9 @@ test("New module migrations enforce member/admin boundaries and validation", asy
       a,
       b,
     ]);
+    await db.query("insert into auth.users(id,email) values($1,'admin@example.com'),($2,'provider@example.com'),($3,'buyer@example.com')",[admin,a,b]);
+    await db.query("insert into beta_access(user_id,status) values($1,'ACTIVE'),($2,'ACTIVE')",[a,b]);
+    await db.query("update feature_flags set enabled=true where key='payments_enabled'");
     await db.query("insert into user_roles values($1,'SUPER_ADMIN')", [admin]);
     await db.query(
       "insert into organizations values($1,$2,'Fixture organization','PROMOTER')",
@@ -128,7 +133,11 @@ test("New module migrations enforce member/admin boundaries and validation", asy
       ]);
       await db.exec("set role authenticated");
     };
+    await act(admin);await db.query("select admin_manage_beta_access('invited@example.com','ACTIVE','Founding beta cohort')");
+    await db.exec("reset role");assert.equal((await db.query("select status from beta_access where email='invited@example.com'")).rows[0].status,"ACTIVE");
+    await act(b);assert.equal((await db.query("select beta_access_status() as status")).rows[0].status,"ACTIVE");
     const privateEvent='71000000-0000-4000-8000-000000000001';
+    await act(admin);
     await db.query("insert into events(id,organization_id,title,status,visibility) values($1,$2,'Private event','PUBLISHED','PRIVATE')",[privateEvent,org]);
     await act(b);
     assert.equal((await db.query("select * from events where id=$1",[privateEvent])).rows.length,0);
@@ -411,6 +420,8 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     const commerceCheckout=(await db.query("select (begin_provider_order_checkout($1,$2)).*",[providerOrder,"a0000000-0000-4000-8000-000000000003"])).rows[0];assert.equal(Number(commerceCheckout.amount),1000);
     await db.exec("reset role;set role service_role");await db.query("update payment_checkouts set provider_order_id='PAYPAL-PROVIDER-1',status='PROVIDER_PENDING' where id=$1",[commerceCheckout.id]);await db.query("select complete_provider_order_payment('PAYPAL-PROVIDER-1','CAPTURE-PROVIDER-1',1000,'SAR',$1)",[{verified:true}]);await db.exec("reset role");
     assert.equal((await db.query("select status from provider_orders where id=$1",[providerOrder])).rows[0].status,"DEPOSIT_PAID");assert.ok(catalog);
+    assert.ok(Number((await db.query("select count(*) as count from user_notifications")).rows[0].count)>=2);assert.ok(Number((await db.query("select count(*) as count from notification_outbox")).rows[0].count)>=2);
+    await db.query("update feature_flags set enabled=false where key='payments_enabled'");await act(b);await assert.rejects(db.query("select begin_provider_order_checkout($1,$2)",[providerOrder,"a0000000-0000-4000-8000-000000000004"]),/Payments are disabled/);
     for (let i = 0; i < 3; i++)
       await db.query("select begin_ai_request('GENERATE_BIO')");
     await assert.rejects(

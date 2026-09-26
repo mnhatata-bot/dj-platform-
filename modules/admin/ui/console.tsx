@@ -55,6 +55,9 @@ const resources = [
   "provider_orders",
   "provider_order_history",
   "provider_order_deliverables",
+  "beta_access",
+  "user_notifications",
+  "notification_outbox",
 ];
 const roles = [
   "USER",
@@ -89,6 +92,8 @@ export default function AdminConsole() {
   const [role, setRole] = useState("USER");
   const [key, setKey] = useState("branding");
   const [config, setConfig] = useState("{}");
+  const [betaEmail,setBetaEmail] = useState("");
+  const [betaNotes,setBetaNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -789,6 +794,12 @@ export default function AdminConsole() {
           >
             {t("save")}
           </button>
+          <hr />
+          <h3>Controlled beta access</h3>
+          <p>Approve, invite or revoke an email without exposing authentication controls.</p>
+          <input type="email" value={betaEmail} onChange={e=>setBetaEmail(e.target.value)} placeholder="tester@example.com" />
+          <textarea value={betaNotes} onChange={e=>setBetaNotes(e.target.value)} placeholder="Cohort, organization or approval note" rows={3}/>
+          <div className="row-actions">{["INVITED","ACTIVE","REVOKED"].map(status=><button key={status} className={`button ${status==="ACTIVE"?"primary":""}`} disabled={busy||!betaEmail} onClick={()=>run(async()=>{const {error}=await supabase.rpc("admin_manage_beta_access",{p_email:betaEmail,p_status:status,p_notes:betaNotes});if(error)throw error;setNotice(`Beta access ${status.toLowerCase()} for ${betaEmail}`)})}>{status}</button>)}</div>
         </section>
       )}
     </>

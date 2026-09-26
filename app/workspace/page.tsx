@@ -24,6 +24,7 @@ const AdminConsole = dynamic(() => import("@/modules/admin/ui/console"));
 const EpkSectionEditor = dynamic(() => import("@/modules/epk/ui/section-editor"));
 const PlanAccess = dynamic(() => import("@/modules/subscriptions/ui/plan-access"));
 const TicketReconciliation = dynamic(() => import("@/modules/ticketing/ui/reconciliation"));
+const NotificationCenter = dynamic(() => import("@/modules/notifications/ui/center"));
 
 const MyInquiries = dynamic(() => import("@/modules/providers/ui/inquiries"));
 const ProviderEditor = dynamic(() => import("@/modules/providers/ui/editor"));
@@ -189,6 +190,7 @@ type Tab =
   | "media"
   | "ai"
   | "messages"
+  | "notifications"
   | "admin"
   | "wallet"
   | "guide"
@@ -395,6 +397,7 @@ export default function AccountWorkspace() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [verificationEmail, setVerificationEmail] = useState("");
+  const [betaStatus,setBetaStatus] = useState<string|null>(null);
   const [dj, setDj] = useState<DJ | null>(null);
   const [org, setOrg] = useState<Org | null>(null);
   const [organizations,setOrganizations] = useState<Org[]>([]);
@@ -508,7 +511,9 @@ export default function AccountWorkspace() {
     if (user) {
       const saved = localStorage.getItem(`cuelance.workspace.${user.id}`);
       if (saved && saved in workspaceDefs) setActiveRole(saved as RoleOS);
-      void load();
+      void supabase.rpc("beta_access_status").then(({data})=>{const status=String(data||"PENDING");setBetaStatus(status);if(status==="ACTIVE")void load()});
+    } else {
+      setBetaStatus(null);
     }
   }, [user]);
   const ownedEvents = useMemo(
@@ -1178,6 +1183,7 @@ export default function AccountWorkspace() {
         </form>
       </main>
     );
+  if(betaStatus!=="ACTIVE")return <main className="auth-shell"><section className="card auth-card"><div className="brand">CUE<span>LANCE</span></div><p className="eyebrow">CONTROLLED BETA</p><h2>{betaStatus===null?"Checking access…":"Access approval required"}</h2><p>{betaStatus===null?"Verifying your beta membership.":"Your account is signed in, but it has not been activated for the controlled beta. An administrator can approve your email from Cuelance Command."}</p><button className="button" onClick={signOut}>Sign out</button></section></main>;
   const allNav: { id: Tab; label: string; tag?: string }[] = [
     { id: "overview", label: "Command center" },
     { id: "artist", label: "Artist profile" },
@@ -1194,6 +1200,7 @@ export default function AccountWorkspace() {
     { id: "ai", label: t("nav.ai") },
     { id: "wallet", label: t("nav.wallet") },
     { id: "messages", label: t("nav.messages") },
+    { id: "notifications", label: "Notifications", tag: "BETA" },
     { id: "admin", label: t("nav.admin") },
   ];
   const activeWorkspace = workspaceDefs[activeRole];
@@ -1201,6 +1208,7 @@ export default function AccountWorkspace() {
   if (activeRole !== "fan" && activeRole !== "admin") nav.splice(1, 0, {id:"publicpage",label:t("page.title")});
   nav.push({id:"plans",label:"Plan & access",tag:"ACCESS"});
   nav.push({id:"inquiries",label:t("page.myInquiries")});
+  nav.push({id:"notifications",label:"Notifications",tag:"BETA"});
   function switchRole(role: RoleOS) {
     setActiveRole(role);
     if (user) localStorage.setItem(`cuelance.workspace.${user.id}`, role);
@@ -1419,6 +1427,7 @@ export default function AccountWorkspace() {
             />
           )}
           {tab === "messages" && <Inbox />}
+          {tab === "notifications" && <NotificationCenter />}
           {tab === "plans" && <PlanAccess organizationId={org?.id} />}
           {tab === "admin" && <AdminConsole />}
           {tab === "guide" && <CompleteGuide />}

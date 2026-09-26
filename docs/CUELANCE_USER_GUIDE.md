@@ -4,6 +4,8 @@ Version: implementation update, 26 September 2026.
 
 Release note: this guide describes the new implementation. Deployment and device-level validation are pending; do not treat it as proof that the live site already contains these changes. Payment flows remain unavailable until the production merchant is configured.
 
+Controlled beta: only administrator-approved accounts can operate authenticated modules. Cuelance Command manages invitations and activation by email. Payments default to off even when merchant credentials exist. Administrators must explicitly enable them after commercial and financial approval. In-app notifications work independently; transactional email also requires the server-side delivery credentials.
+
 # English guide
 
 ## 1. Artist profile and EPK
