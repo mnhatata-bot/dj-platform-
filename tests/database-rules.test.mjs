@@ -8,7 +8,7 @@ test("New module migrations enforce member/admin boundaries and validation", asy
   const db = new PGlite();
   try {
     await db.exec(`
- create role anon; create role authenticated;
+ create role anon; create role authenticated; create role service_role bypassrls;
  create schema auth; create schema private; create schema storage;
  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  grant usage on schema public,auth,storage to anon,authenticated;
@@ -68,6 +68,7 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await db.exec(readFileSync(new URL('../supabase/migrations/20260925114743_event_visibility_and_staff_boundaries.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260925115248_provider_admin_visibility_and_rpc_grants.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926112000_subscription_entitlements.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../supabase/migrations/20260926181542_provider_neutral_payments.sql',import.meta.url),'utf8'));
     const admin = "10000000-0000-4000-8000-000000000001",
       a = "10000000-0000-4000-8000-000000000002",
       b = "10000000-0000-4000-8000-000000000003";
@@ -360,6 +361,20 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     const proAccess=(await db.query("select entitlement_snapshot(null) as access")).rows[0].access;
     assert.equal(proAccess.plan,"ARTIST_PRO");
     assert.equal(proAccess.entitlements["epk.templates"],5);
+    const checkoutKey="a0000000-0000-4000-8000-000000000001";
+    const checkout=(await db.query("select (begin_subscription_checkout('ARTIST_PRO',null,$1)).*",[checkoutKey])).rows[0];
+    assert.equal(Number(checkout.amount),79);
+    assert.equal(checkout.status,"CREATED");
+    assert.equal((await db.query("select (begin_subscription_checkout('ARTIST_PRO',null,$1)).id as id",[checkoutKey])).rows[0].id,checkout.id);
+    await db.exec("reset role; set role service_role");
+    await db.query("update payment_checkouts set provider_order_id='PAYPAL-ORDER-1',status='PROVIDER_PENDING' where id=$1",[checkout.id]);
+    await db.query("select complete_verified_payment('PAYPAL','EVENT-1','PAYMENT.CAPTURE.COMPLETED','PAYPAL-ORDER-1','CAPTURE-1',79,'SAR',$1)",[{verified:true}]);
+    await db.exec("reset role");
+    assert.equal((await db.query("select status from payment_checkouts where id=$1",[checkout.id])).rows[0].status,"COMPLETED");
+    assert.equal((await db.query("select count(*)::int as count from subscriptions where user_id=$1 and status='ACTIVE'",[a])).rows[0].count,1);
+    await act(b);
+    assert.equal((await db.query("select * from payment_checkouts")).rows.length,0);
+    await assert.rejects(db.query("insert into payment_checkouts(user_id,purpose,provider,amount,currency,plan_code) values($1,'SUBSCRIPTION','PAYPAL',1,'SAR','ARTIST_PRO')",[b]),/permission denied/);
     for (let i = 0; i < 3; i++)
       await db.query("select begin_ai_request('GENERATE_BIO')");
     await assert.rejects(

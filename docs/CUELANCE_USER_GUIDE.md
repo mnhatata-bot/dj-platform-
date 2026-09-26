@@ -39,7 +39,7 @@ Example: “Based in Riyadh; house and disco sets; Arabic and English; five year
 1. Open **Plan & access** from any workspace to see the plan applied to the selected account or organization.
 2. Review the exact server-enforced allowances for EPK templates, publications, AI usage, storage, organizations, team members, marketplace, communities, ticketing, analytics and custom domains.
 3. Usage counters show consumption such as AI requests used today. Expired subscriptions automatically return to Cuelance Free without deleting content.
-4. Until the payment adapter is approved, checkout remains disabled and platform administrators assign trials or plans through the secured subscription service.
+4. Checkout remains disabled until an approved merchant is configured. Once configured, choose a paid plan, continue to the provider-hosted checkout, and return to Cuelance. Access changes only after Cuelance verifies the captured amount and currency; a browser redirect alone never activates a plan.
 5. Make private withdraws public access. Previously issued temporary links may remain valid until their short expiry.
 
 Example: press-photo.jpg with alt text “Motata performing on stage in Riyadh.”
