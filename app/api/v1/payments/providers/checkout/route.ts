@@ -1,4 +1,61 @@
-import {z} from "zod";import {authenticate,apiError} from "@/lib/server-auth";import {adminDatabase} from "@/lib/server-admin";import {paypal} from "@/modules/payments/infrastructure/paypal";
-import {paymentCheckoutAvailable} from "@/modules/payments/application/availability";
-export const runtime="nodejs";const Input=z.object({orderId:z.string().uuid(),idempotencyKey:z.string().uuid()});
-export async function POST(request:Request){try{if(!await paymentCheckoutAvailable(paypal))return Response.json({error:"Payments are disabled during the controlled beta."},{status:503});const input=Input.parse(await request.json());const {db}=await authenticate(request);const {data,error}=await db.rpc("begin_provider_order_checkout",{p_order:input.orderId,p_idempotency:input.idempotencyKey});if(error)throw error;const checkout=Array.isArray(data)?data[0]:data;if(!checkout)throw new Error("CHECKOUT_NOT_CREATED");const origin=new URL(request.url).origin;const hosted=await paypal.createCheckout({internalId:checkout.id,amount:Number(checkout.amount).toFixed(2),currency:checkout.currency,description:"Cuelance provider order",returnUrl:new URL("/workspace?tab=inquiries&providerPayment=success",origin).toString(),cancelUrl:new URL("/workspace?tab=inquiries&providerPayment=cancelled",origin).toString()});const {error:updateError}=await adminDatabase().from("payment_checkouts").update({provider_order_id:hosted.orderId,status:"PROVIDER_PENDING",updated_at:new Date().toISOString()}).eq("id",checkout.id);if(updateError)throw updateError;return Response.json({approvalUrl:hosted.approvalUrl});}catch(error){return apiError(error)}}
+import { z } from "zod";
+import { authenticate, apiError } from "@/lib/server-auth";
+import { adminDatabase } from "@/lib/server-admin";
+import { paypal } from "@/modules/payments/infrastructure/paypal";
+import { paymentCheckoutAvailable } from "@/modules/payments/application/availability";
+
+export const runtime = "nodejs";
+const Input = z.object({
+  orderId: z.string().uuid(),
+  idempotencyKey: z.string().uuid(),
+});
+
+export async function POST(request: Request) {
+  try {
+    const { db } = await authenticate(request);
+    if (!(await paymentCheckoutAvailable(paypal)))
+      return Response.json(
+        { error: "Payments are disabled during the controlled beta." },
+        { status: 503 },
+      );
+    const input = Input.parse(await request.json());
+    const { data, error } = await db.rpc("begin_provider_order_checkout", {
+      p_order: input.orderId,
+      p_idempotency: input.idempotencyKey,
+    });
+    if (error) throw error;
+    const checkout = Array.isArray(data) ? data[0] : data;
+    if (!checkout) throw new Error("CHECKOUT_NOT_CREATED");
+    const origin = new URL(request.url).origin;
+    const hosted = await paypal.createCheckout({
+      internalId: checkout.id,
+      amount: Number(checkout.amount).toFixed(2),
+      currency: checkout.currency,
+      description: "Cuelance provider order",
+      returnUrl: new URL(
+        "/workspace?tab=inquiries&providerPayment=success",
+        origin,
+      ).toString(),
+      cancelUrl: new URL(
+        "/workspace?tab=inquiries&providerPayment=cancelled",
+        origin,
+      ).toString(),
+    });
+    const { error: updateError } = await adminDatabase()
+      .from("payment_checkouts")
+      .update({
+        provider_order_id: hosted.orderId,
+        status: "PROVIDER_PENDING",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", checkout.id)
+      .eq("user_id", checkout.user_id);
+    if (updateError) throw updateError;
+    return Response.json({
+      checkoutId: checkout.id,
+      approvalUrl: hosted.approvalUrl,
+    });
+  } catch (error) {
+    return apiError(error);
+  }
+}

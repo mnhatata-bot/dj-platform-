@@ -5,7 +5,7 @@ import { paypal } from "@/modules/payments/infrastructure/paypal";
 export const runtime="nodejs";
 const Input=z.object({providerOrderId:z.string().min(6).max(100)});
 export async function POST(request:Request){try{
- const input=Input.parse(await request.json());const {db}=await authenticate(request);
+ const {db}=await authenticate(request);const input=Input.parse(await request.json());
  const {data:checkout,error}=await db.from("payment_checkouts").select("id,status,amount,currency,purpose").eq("provider","PAYPAL").eq("provider_order_id",input.providerOrderId).maybeSingle();
  if(error||!checkout)throw new Error("CHECKOUT_NOT_FOUND");
  if(checkout.status==="COMPLETED")return Response.json({completed:true,checkoutId:checkout.id});

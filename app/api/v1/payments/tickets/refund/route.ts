@@ -5,8 +5,9 @@ import { paypal } from "@/modules/payments/infrastructure/paypal";
 export const runtime="nodejs";
 const Input=z.object({ticketId:z.string().uuid(),reason:z.string().trim().min(3).max(500)});
 export async function POST(request:Request){try{
+ const {db}=await authenticate(request);
  if(!paypal.configured())return Response.json({error:"Refund provider is not configured."},{status:503});
- const input=Input.parse(await request.json());const {db}=await authenticate(request);
+ const input=Input.parse(await request.json());
  const {data,error}=await db.rpc("request_ticket_refund",{p_ticket:input.ticketId,p_reason:input.reason});
  if(error)throw error;const refund=Array.isArray(data)?data[0]:data;if(!refund)throw new Error("REFUND_NOT_CREATED");
  const admin=adminDatabase();const {data:checkout,error:checkoutError}=await admin.from("payment_checkouts").select("provider_capture_id").eq("id",refund.checkout_id).single();
