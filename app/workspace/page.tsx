@@ -1133,9 +1133,8 @@ export default function AccountWorkspace() {
           <p className="eyebrow">
             <Localized text="ACCESS CUELANCE" />
           </p>
-          <h2>
-            {tr(mode === "login" ? "Welcome back" : "Create your account")}
-          </h2>
+          <h2>{tr("Welcome back")}</h2>
+          <p>Controlled beta access is invite-only. Sign in with an account provided by Cuelance.</p>
           <label>
             <Localized text="Email" />{" "}
             <input
@@ -1156,37 +1155,7 @@ export default function AccountWorkspace() {
             />
           </label>
           <button className="button primary" disabled={busy}>
-            {tr(
-              busy
-                ? "Working…"
-                : mode === "login"
-                  ? "Sign in"
-                  : "Create account",
-            )}
-          </button>
-          {verificationEmail && (
-            <button
-              className="button secondary full"
-              type="button"
-              onClick={resendVerification}
-              disabled={busy}
-            >
-              <Localized text="Resend verification email" />{" "}
-            </button>
-          )}
-          <button
-            className="text-button"
-            type="button"
-            onClick={() => {
-              setMode(mode === "login" ? "signup" : "login");
-              setVerificationEmail("");
-            }}
-          >
-            {tr(
-              mode === "login"
-                ? "New here? Create an account"
-                : "Already have an account? Sign in",
-            )}
+            {tr(busy ? "Working…" : "Sign in")}
           </button>
           {notice && <div className="notice">{notice}</div>}
         </form>
@@ -2900,78 +2869,4 @@ const fieldHelp: Record<string, { tip: string; example: string }> = {
     example: "Example: 3 sound systems.",
   },
   "RFQ requirement": {
-    tip: "Describe the procurement need, date, scale and specifications.",
-    example: "Example: Sound, lighting and DJ booth for a 300-person event.",
-  },
-};
-function Field({
-  label,
-  children,
-  wide = false,
-}: {
-  label: string;
-  children: React.ReactNode;
-  wide?: boolean;
-}) {
-  const help = fieldHelp[label];
-  const id = useId();
-  const tr = useLegacy();
-  return (
-    <div className={wide ? "field wide" : "field"}>
-      <span>
-        <label htmlFor={id}>{tr(label)}</label>
-        {help && <Help text={`${tr(help.tip)} ${tr(help.example)}`} />}
-      </span>
-      {isValidElement(children)
-        ? cloneElement(
-            children as React.ReactElement<{
-              id: string;
-              placeholder?: string;
-            }>,
-            {
-              id,
-              placeholder: (children.props as { placeholder?: string })
-                .placeholder
-                ? tr((children.props as { placeholder: string }).placeholder)
-                : undefined,
-            },
-          )
-        : children}
-      {help && <small className="field-example">{tr(help.example)}</small>}
-    </div>
-  );
-}
-function Pill({ value }: { value: string }) {
-  return (
-    <span
-      className={`pill ${value.toLowerCase().includes("publish") || value === "ACTIVE" || value === "READY" ? "good" : ""}`}
-    >
-      {value.replace(/_/g, " ")}
-    </span>
-  );
-}
-function Metric({
-  label,
-  value,
-  status = "",
-}: {
-  label: string;
-  value: string;
-  status?: string;
-}) {
-  return (
-    <article className="metric">
-      <span>{label}</span>
-      <b className={status}>{value}</b>
-    </article>
-  );
-}
-function Empty({ title, body }: { title: string; body: string }) {
-  const tr = useLegacy();
-  return (
-    <div className="empty">
-      <b>{tr(title)}</b>
-      <p>{tr(body)}</p>
-    </div>
-  );
-}
+    tip: "Describe the pro

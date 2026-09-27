@@ -33,3 +33,9 @@ test("existing platform admins can recover from a missing beta-status RPC", () =
   assert.match(workspace, /if\(error\)\{const admin=await supabase\.rpc\("platform_admin"\)/);
   assert.match(workspace, /if\(admin\.data===true\)status="ACTIVE"/);
 });
+
+test("public workspace signup stays closed during controlled beta", () => {
+  const workspace = source("app/workspace/page.tsx");
+  assert.match(workspace, /Controlled beta access is invite-only/);
+  assert.doesNotMatch(workspace, /New here\? Create an account/);
+});
