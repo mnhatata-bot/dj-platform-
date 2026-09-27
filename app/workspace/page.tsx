@@ -516,7 +516,11 @@ export default function AccountWorkspace() {
     if (user) {
       const saved = localStorage.getItem(`cuelance.workspace.${user.id}`);
       if (saved && saved in workspaceDefs) setActiveRole(saved as RoleOS);
-      void supabase.rpc("beta_access_status").then(({data})=>{const status=String(data||"PENDING");setBetaStatus(status);if(status==="ACTIVE")void load()});
+      void supabase.rpc("beta_access_status").then(async({data,error})=>{
+        let status=String(data||"PENDING");
+        if(error){const admin=await supabase.rpc("platform_admin");if(admin.data===true)status="ACTIVE";}
+        setBetaStatus(status);if(status==="ACTIVE")void load();
+      });
     } else {
       setBetaStatus(null);
     }

@@ -16,6 +16,15 @@ type PageDocument = {
   blocks: ContentBlock[];
 };
 type Row = Record<string, unknown>;
+type UatCredential = {
+  key: string;
+  name: string;
+  email: string;
+  role: string;
+  password: string | null;
+  created: boolean;
+  reset: boolean;
+};
 const blank: PageDocument = {
   slug: "",
   language: "en",
@@ -105,6 +114,7 @@ export default function AdminConsole() {
   const [config, setConfig] = useState("{}");
   const [betaEmail,setBetaEmail] = useState("");
   const [betaNotes,setBetaNotes] = useState("");
+  const [uatCredentials,setUatCredentials] = useState<UatCredential[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -811,6 +821,27 @@ export default function AdminConsole() {
           <input type="email" value={betaEmail} onChange={e=>setBetaEmail(e.target.value)} placeholder="tester@example.com" />
           <textarea value={betaNotes} onChange={e=>setBetaNotes(e.target.value)} placeholder="Cohort, organization or approval note" rows={3}/>
           <div className="row-actions">{["INVITED","ACTIVE","REVOKED"].map(status=><button key={status} className={`button ${status==="ACTIVE"?"primary":""}`} disabled={busy||!betaEmail} onClick={()=>run(async()=>{const {error}=await supabase.rpc("admin_manage_beta_access",{p_email:betaEmail,p_status:status,p_notes:betaNotes});if(error)throw error;setNotice(`Beta access ${status.toLowerCase()} for ${betaEmail}`)})}>{status}</button>)}</div>
+          <hr />
+          <h3>UAT account suite</h3>
+          <p>Create one isolated account for every controlled-beta persona. Temporary passwords appear only after creation or an explicit reset.</p>
+          <p><a className="button small" href="/uat" target="_blank" rel="noreferrer">Open UAT playbook</a></p>
+          <div className="row-actions">
+            <button className="button primary" disabled={busy} onClick={()=>run(async()=>{
+              const {data:{session}}=await supabase.auth.getSession();
+              if(!session)throw new Error("Sign in again before provisioning UAT accounts.");
+              const response=await fetch("/api/v1/admin/uat/accounts",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({resetExisting:false})});
+              const result=await response.json();if(!response.ok)throw new Error(result.error||"UAT provisioning failed");
+              setUatCredentials(result.credentials);setNotice("UAT account suite is ready. Copy any new passwords now.");
+            })}>Provision UAT accounts</button>
+            <button className="button danger" disabled={busy} onClick={()=>{if(!confirm("Reset every UAT password? Existing saved passwords will stop working."))return;void run(async()=>{
+              const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error("Sign in again before resetting UAT accounts.");
+              const response=await fetch("/api/v1/admin/uat/accounts",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({resetExisting:true})});
+              const result=await response.json();if(!response.ok)throw new Error(result.error||"UAT reset failed");setUatCredentials(result.credentials);setNotice("All UAT passwords were reset. Copy them now.");
+            })}}>Reset UAT passwords</button>
+          </div>
+          {uatCredentials.length>0&&<div className="record-grid" role="region" aria-label="UAT credentials">
+            {uatCredentials.map(account=><article className="data-card" key={account.key}><div className="row-between"><div><h4>{account.name}</h4><p>{account.role}</p></div><span className="status-pill">{account.created?"CREATED":account.reset?"RESET":"EXISTS"}</span></div><code>{account.email}</code><code>{account.password||"Password unchanged"}</code></article>)}
+          </div>}
         </section>
       )}
     </>
