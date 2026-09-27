@@ -2869,4 +2869,78 @@ const fieldHelp: Record<string, { tip: string; example: string }> = {
     example: "Example: 3 sound systems.",
   },
   "RFQ requirement": {
-    tip: "Describe the pro
+    tip: "Describe the procurement need, date, scale and specifications.",
+    example: "Example: Sound, lighting and DJ booth for a 300-person event.",
+  },
+};
+function Field({
+  label,
+  children,
+  wide = false,
+}: {
+  label: string;
+  children: React.ReactNode;
+  wide?: boolean;
+}) {
+  const help = fieldHelp[label];
+  const id = useId();
+  const tr = useLegacy();
+  return (
+    <div className={wide ? "field wide" : "field"}>
+      <span>
+        <label htmlFor={id}>{tr(label)}</label>
+        {help && <Help text={`${tr(help.tip)} ${tr(help.example)}`} />}
+      </span>
+      {isValidElement(children)
+        ? cloneElement(
+            children as React.ReactElement<{
+              id: string;
+              placeholder?: string;
+            }>,
+            {
+              id,
+              placeholder: (children.props as { placeholder?: string })
+                .placeholder
+                ? tr((children.props as { placeholder: string }).placeholder)
+                : undefined,
+            },
+          )
+        : children}
+      {help && <small className="field-example">{tr(help.example)}</small>}
+    </div>
+  );
+}
+function Pill({ value }: { value: string }) {
+  return (
+    <span
+      className={`pill ${value.toLowerCase().includes("publish") || value === "ACTIVE" || value === "READY" ? "good" : ""}`}
+    >
+      {value.replace(/_/g, " ")}
+    </span>
+  );
+}
+function Metric({
+  label,
+  value,
+  status = "",
+}: {
+  label: string;
+  value: string;
+  status?: string;
+}) {
+  return (
+    <article className="metric">
+      <span>{label}</span>
+      <b className={status}>{value}</b>
+    </article>
+  );
+}
+function Empty({ title, body }: { title: string; body: string }) {
+  const tr = useLegacy();
+  return (
+    <div className="empty">
+      <b>{tr(title)}</b>
+      <p>{tr(body)}</p>
+    </div>
+  );
+}
