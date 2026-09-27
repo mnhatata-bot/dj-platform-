@@ -115,6 +115,8 @@ export default function AdminConsole() {
   const [betaEmail,setBetaEmail] = useState("");
   const [betaNotes,setBetaNotes] = useState("");
   const [uatCredentials,setUatCredentials] = useState<UatCredential[]>([]);
+  const [newUser,setNewUser] = useState({email:"",name:"",password:"",role:"USER"});
+  const [createdUser,setCreatedUser] = useState<{email:string;password:string;role:string;created:boolean}|null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -815,6 +817,21 @@ export default function AdminConsole() {
           >
             {t("save")}
           </button>
+          <hr />
+          <h3>User management</h3>
+          <p>Create an activated controlled-beta user, assign one primary platform role, or reset an existing user password.</p>
+          <input type="email" value={newUser.email} onChange={e=>setNewUser({...newUser,email:e.target.value})} placeholder="user@example.com" />
+          <input value={newUser.name} onChange={e=>setNewUser({...newUser,name:e.target.value})} placeholder="Display name" />
+          <select value={newUser.role} onChange={e=>setNewUser({...newUser,role:e.target.value})} aria-label="User role">{roles.map(item=><option key={item}>{item}</option>)}</select>
+          <div className="row-actions">
+            <input type="text" minLength={10} value={newUser.password} onChange={e=>setNewUser({...newUser,password:e.target.value})} placeholder="Temporary password" autoComplete="new-password" />
+            <button className="button" type="button" onClick={()=>{const bytes=crypto.getRandomValues(new Uint8Array(12));const generated=`Cu!${Array.from(bytes,b=>b.toString(36)).join("").slice(0,18)}Aa7`;setNewUser({...newUser,password:generated})}}>Generate password</button>
+          </div>
+          <div className="row-actions">
+            <button className="button primary" disabled={busy||!newUser.email||newUser.password.length<10} onClick={()=>run(async()=>{const {data,error}=await supabase.functions.invoke("admin-users",{body:{...newUser,action:"create"}});if(error)throw error;if(data?.error)throw new Error(data.error);setCreatedUser({...data.user,password:data.password,created:data.created});setNotice("User created and activated. Copy the password now.")})}>Create user</button>
+            <button className="button danger" disabled={busy||!newUser.email||newUser.password.length<10} onClick={()=>{if(!confirm(`Reset password and assign ${newUser.role} to ${newUser.email}?`))return;void run(async()=>{const {data,error}=await supabase.functions.invoke("admin-users",{body:{...newUser,action:"reset"}});if(error)throw error;if(data?.error)throw new Error(data.error);setCreatedUser({...data.user,password:data.password,created:data.created});setNotice("User password and role updated. Copy the password now.")})}}>Update / reset user</button>
+          </div>
+          {createdUser&&<article className="data-card"><div className="row-between"><div><h4>{createdUser.email}</h4><p>{createdUser.role}</p></div><span className="status-pill">{createdUser.created?"CREATED":"UPDATED"}</span></div><code>{createdUser.password}</code></article>}
           <hr />
           <h3>Controlled beta access</h3>
           <p>Approve, invite or revoke an email without exposing authentication controls.</p>
