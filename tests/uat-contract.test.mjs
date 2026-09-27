@@ -20,6 +20,12 @@ test("UAT suite contains isolated accounts for every beta persona", () => {
   assert.equal((route.match(/@cuelance\.com/g) || []).length, 10);
 });
 
+test("admin console uses the authenticated Supabase UAT provisioner", () => {
+  const console = source("modules/admin/ui/console.tsx");
+  assert.match(console, /supabase\.functions\.invoke\("uat-provision",\{body:\{resetExisting:false\}\}\)/);
+  assert.match(console, /supabase\.functions\.invoke\("uat-provision",\{body:\{resetExisting:true\}\}\)/);
+});
+
 test("UAT playbook covers role-to-role, mobile, RTL and severity feedback", () => {
   const playbook = source("docs/CONTROLLED_BETA_UAT_PLAYBOOK.md");
   for (let id = 1; id <= 10; id += 1)

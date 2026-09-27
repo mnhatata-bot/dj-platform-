@@ -827,16 +827,11 @@ export default function AdminConsole() {
           <p><a className="button small" href="/uat" target="_blank" rel="noreferrer">Open UAT playbook</a></p>
           <div className="row-actions">
             <button className="button primary" disabled={busy} onClick={()=>run(async()=>{
-              const {data:{session}}=await supabase.auth.getSession();
-              if(!session)throw new Error("Sign in again before provisioning UAT accounts.");
-              const response=await fetch("/api/v1/admin/uat/accounts",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({resetExisting:false})});
-              const result=await response.json();if(!response.ok)throw new Error(result.error||"UAT provisioning failed");
+              const {data:result,error}=await supabase.functions.invoke("uat-provision",{body:{resetExisting:false}});if(error)throw error;
               setUatCredentials(result.credentials);setNotice("UAT account suite is ready. Copy any new passwords now.");
             })}>Provision UAT accounts</button>
             <button className="button danger" disabled={busy} onClick={()=>{if(!confirm("Reset every UAT password? Existing saved passwords will stop working."))return;void run(async()=>{
-              const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error("Sign in again before resetting UAT accounts.");
-              const response=await fetch("/api/v1/admin/uat/accounts",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({resetExisting:true})});
-              const result=await response.json();if(!response.ok)throw new Error(result.error||"UAT reset failed");setUatCredentials(result.credentials);setNotice("All UAT passwords were reset. Copy them now.");
+              const {data:result,error}=await supabase.functions.invoke("uat-provision",{body:{resetExisting:true}});if(error)throw error;setUatCredentials(result.credentials);setNotice("All UAT passwords were reset. Copy them now.");
             })}}>Reset UAT passwords</button>
           </div>
           {uatCredentials.length>0&&<div className="record-grid" role="region" aria-label="UAT credentials">
