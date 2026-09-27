@@ -395,6 +395,7 @@ export default function AccountWorkspace() {
   const tr = useLegacy();
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [authView, setAuthView] = useState<"login" | "forgot" | "update">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [tab, setTab] = useState<Tab>("overview");
@@ -484,9 +485,10 @@ export default function AccountWorkspace() {
     supabase.auth
       .getUser()
       .then(({ data }) => setUser(data.user as User | null));
-    const { data: auth } = supabase.auth.onAuthStateChange((_event, session) =>
-      setUser(session?.user as User | null),
-    );
+    const { data: auth } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user as User | null);
+      if (event === "PASSWORD_RECOVERY") setAuthView("update");
+    });
     return () => auth.subscription.unsubscribe();
   }, []);
   useEffect(() => {
@@ -726,6 +728,26 @@ export default function AccountWorkspace() {
       );
     }
     tell("You are signed in.");
+  }
+  async function requestPasswordReset() {
+    if (!email) return tell("Enter your email address first.");
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/workspace`,
+    });
+    setBusy(false);
+    tell(error ? error.message : "Password reset email sent. Check your inbox and spam folder.");
+  }
+  async function updatePassword(event: FormEvent) {
+    event.preventDefault();
+    if (password.length < 8) return tell("Use at least 8 characters.");
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (error) return tell(error.message);
+    setPassword("");
+    setAuthView("login");
+    tell("Password updated. Your account is ready.");
   }
   async function resendVerification() {
     const target = verificationEmail || email;
@@ -1099,6 +1121,8 @@ export default function AccountWorkspace() {
     setUser(null);
   }
 
+  if (authView === "update")
+    return <main className="auth-shell"><form className="card auth-card" onSubmit={updatePassword}><div className="brand">CUE<span>LANCE</span></div><p className="eyebrow">ACCOUNT RECOVERY</p><h2>Set a new password</h2><label>New password<input required minLength={8} type="password" value={password} onChange={(event)=>setPassword(event.target.value)} /></label><button className="button primary" disabled={busy}>{busy?"Updating…":"Update password"}</button>{notice&&<div className="notice">{notice}</div>}</form></main>;
   if (!user)
     return (
       <main className="auth-shell">
@@ -1127,14 +1151,14 @@ export default function AccountWorkspace() {
             <Localized text="Artist → opportunity → event → ticket → secure entry" />{" "}
           </div>
         </section>
-        <form className="card auth-card" onSubmit={submitAuth}>
+        <form className="card auth-card" onSubmit={authView === "forgot" ? (event)=>{event.preventDefault();void requestPasswordReset();} : submitAuth}>
           <a className="button small" href="/marketplace">{t("page.marketplace")}</a>
           <LanguageSwitch />
           <p className="eyebrow">
             <Localized text="ACCESS CUELANCE" />
           </p>
-          <h2>{tr("Welcome back")}</h2>
-          <p>Controlled beta access is invite-only. Sign in with an account provided by Cuelance.</p>
+          <h2>{authView === "forgot" ? "Reset password" : tr("Welcome back")}</h2>
+          <p>{authView === "forgot" ? "Enter your approved email and we will send a secure reset link." : "Controlled beta access is invite-only. Sign in with an account provided by Cuelance."}</p>
           <label>
             <Localized text="Email" />{" "}
             <input
@@ -1144,7 +1168,7 @@ export default function AccountWorkspace() {
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
-          <label>
+          {authView === "login" && <label>
             <Localized text="Password" />{" "}
             <input
               required
@@ -1153,10 +1177,11 @@ export default function AccountWorkspace() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
-          </label>
+          </label>}
           <button className="button primary" disabled={busy}>
-            {tr(busy ? "Working…" : "Sign in")}
+            {tr(busy ? "Working…" : authView === "forgot" ? "Send reset link" : "Sign in")}
           </button>
+          <button className="button" type="button" disabled={busy} onClick={()=>{setNotice("");setAuthView(authView === "forgot" ? "login" : "forgot")}}>{authView === "forgot" ? "Back to sign in" : "Forgot password?"}</button>
           {notice && <div className="notice">{notice}</div>}
         </form>
       </main>
