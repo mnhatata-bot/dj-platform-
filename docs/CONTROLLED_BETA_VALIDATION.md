@@ -23,6 +23,7 @@ Deployment: not performed
 | Production build | PASS | Next.js compiled and generated 21 routes |
 | Local production HTTP smoke | PASS | 17/17 public/manifest/status/unauthorized route checks |
 | Git whitespace validation | PASS | `git diff --check` |
+| Vercel plan compatibility | PASS | Background jobs use once-daily schedules accepted by the controlled-beta Hobby plan |
 
 ## Defects fixed during validation
 
@@ -33,6 +34,7 @@ Deployment: not performed
 5. Booking history could appear empty when the parent inquiry had no guaranteed participant-read policy. The missing participant policy is now explicit.
 6. Full provider-order payment could fail while decrementing stock because an unchanged listing image was revalidated against the service role's empty `auth.uid()`. The trigger now validates media only on insert or a media-reference change.
 7. Tooltip positioning used left-specific CSS. Logical inline positioning now behaves correctly in Arabic RTL.
+8. Vercel rejected the earlier minute-level background schedules on the connected Hobby plan. Notification, domain and media jobs now use staggered once-daily controlled-beta schedules.
 
 ## External staging checks still pending
 
@@ -55,6 +57,7 @@ These are `BLOCKED_EXTERNAL`, not local failures:
 - Automatic domain purchase is disabled; users may search, buy externally and connect a domain they control.
 - Media derivatives require the external processor; uploads remain registered safely if processing is not configured.
 - Admission is online-only. Offline scanning is not advertised as supported.
+- Background email, domain and media processing may take up to 24 hours on the controlled-beta hosting plan; operators can still invoke the protected endpoints manually when needed.
 
 ## Deployment decision
 

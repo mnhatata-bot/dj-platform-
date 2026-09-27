@@ -79,3 +79,11 @@ test("server secrets are never read from NEXT_PUBLIC variables", () => {
       `${name} must not expose server secrets`,
     );
 });
+
+test("controlled-beta Vercel crons remain compatible with the Hobby daily limit", () => {
+  const config = JSON.parse(source("vercel.json"));
+  assert.deepEqual(
+    config.crons.map(({ schedule }) => schedule),
+    ["0 2 * * *", "15 2 * * *", "30 2 * * *"],
+  );
+});

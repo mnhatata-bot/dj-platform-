@@ -208,6 +208,7 @@ This is the controlled-beta test contract. Every visible action must lead to the
 | JOB-03 | Finish success | Save result and COMPLETED timestamp | Completed job is not reclaimed |
 | JOB-04 | Finish failure | Increment attempt and schedule bounded backoff | Exhausted job becomes FAILED |
 | JOB-05 | Media processor | External processor returns derivative metadata | Missing configuration is reported, not falsely completed |
+| JOB-06 | Controlled-beta schedule | Vercel invokes notification/domain/media workers once daily | Queue processing stays deployment-compatible; beta operations document that completion may take up to 24 hours |
 | ADM-01 | Search/list resource | `admin_list` checks explicit resource allowlist | Pagination/search bounded; credential tokens removed |
 | ADM-02 | Edit entity | `admin_update_entity` checks field allowlist | Ownership/security fields cannot change |
 | ADM-03 | Suspend/restore | Audited action updates account state | Cannot suspend self/protected super admin |
