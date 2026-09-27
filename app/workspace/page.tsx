@@ -25,6 +25,9 @@ const EpkSectionEditor = dynamic(() => import("@/modules/epk/ui/section-editor")
 const PlanAccess = dynamic(() => import("@/modules/subscriptions/ui/plan-access"));
 const TicketReconciliation = dynamic(() => import("@/modules/ticketing/ui/reconciliation"));
 const NotificationCenter = dynamic(() => import("@/modules/notifications/ui/center"));
+const AgencyOS = dynamic(() => import("@/modules/agency/ui/agency-os"));
+const ArtistAgencyDesk = dynamic(() => import("@/modules/agency/ui/artist-agency-desk"));
+const DomainManager = dynamic(() => import("@/modules/domains/ui/manager"));
 
 const MyInquiries = dynamic(() => import("@/modules/providers/ui/inquiries"));
 const ProviderEditor = dynamic(() => import("@/modules/providers/ui/editor"));
@@ -191,6 +194,8 @@ type Tab =
   | "ai"
   | "messages"
   | "notifications"
+  | "agencyos"
+  | "domains"
   | "admin"
   | "wallet"
   | "guide"
@@ -216,7 +221,7 @@ const workspaceDefs: Record<
     os: "Career OS",
     promise: "Get booked, look credible, and turn every event into career proof.",
     home: "Profile, EPK, opportunities, bookings, money and analytics.",
-    nav: ["overview", "artist", "epk", "marketplace", "bookings", "messages", "media", "ai", "wallet", "guide"],
+    nav: ["overview", "artist", "epk", "marketplace", "bookings", "agencyos", "messages", "media", "ai", "wallet", "guide"],
     next: [
       { label: "Complete artist profile", tab: "artist" },
       { label: "Publish living EPK", tab: "epk" },
@@ -281,7 +286,7 @@ const workspaceDefs: Record<
     os: "Roster OS",
     promise: "Operate multiple artists through one pipeline and one reporting layer.",
     home: "Roster health, calendars, offers, revenue, tasks and analytics.",
-    nav: ["overview", "artist", "epk", "marketplace", "promote", "messages", "admin", "guide"],
+    nav: ["overview", "agencyos", "artist", "epk", "marketplace", "promote", "messages", "admin", "guide"],
     next: [
       { label: "Set roster identity", tab: "artist" },
       { label: "Review opportunities", tab: "marketplace" },
@@ -1200,13 +1205,16 @@ export default function AccountWorkspace() {
     { id: "ai", label: t("nav.ai") },
     { id: "wallet", label: t("nav.wallet") },
     { id: "messages", label: t("nav.messages") },
+    { id: "agencyos", label: "Agency OS", tag: "ROSTER" },
     { id: "notifications", label: "Notifications", tag: "BETA" },
+    { id: "domains", label: "Domains", tag: "BETA" },
     { id: "admin", label: t("nav.admin") },
   ];
   const activeWorkspace = workspaceDefs[activeRole];
   const nav = allNav.filter((item) => activeWorkspace.nav.includes(item.id) && (item.id !== "admin" || canAdmin));
   if (activeRole !== "fan" && activeRole !== "admin") nav.splice(1, 0, {id:"publicpage",label:t("page.title")});
   nav.push({id:"plans",label:"Plan & access",tag:"ACCESS"});
+  nav.push({id:"domains",label:"Domains",tag:"BETA"});
   nav.push({id:"inquiries",label:t("page.myInquiries")});
   nav.push({id:"notifications",label:"Notifications",tag:"BETA"});
   function switchRole(role: RoleOS) {
@@ -1428,7 +1436,9 @@ export default function AccountWorkspace() {
           )}
           {tab === "messages" && <Inbox />}
           {tab === "notifications" && <NotificationCenter />}
+          {tab === "agencyos" && (activeRole==="artist"?<ArtistAgencyDesk/>:<AgencyOS organization={org}/>)}
           {tab === "plans" && <PlanAccess organizationId={org?.id} />}
+          {tab === "domains" && <DomainManager organization={org ? { id: org.id, name: org.name } : null} epkId={epk?.id} />}
           {tab === "admin" && <AdminConsole />}
           {tab === "guide" && <CompleteGuide />}
         </main>

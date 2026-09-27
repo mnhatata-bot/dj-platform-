@@ -35,7 +35,7 @@ test("New module migrations enforce member/admin boundaries and validation", asy
  create table public.tickets(id uuid primary key,status text,credential_token uuid);
  create table public.checkins(id uuid,scanner_user_id uuid,checked_in_at timestamptz);
  create table public.feature_flags(key text primary key,enabled boolean,updated_at timestamptz default now());
- create table public.media_assets(id uuid primary key,owner_user_id uuid,storage_key text,visibility text,kind text default 'IMAGE');
+ create table public.media_assets(id uuid primary key,owner_user_id uuid,storage_key text,visibility text,kind text default 'IMAGE',mime_type text default 'image/png',file_size bigint default 1,metadata jsonb default '{}'::jsonb,created_at timestamptz default now());
  alter table public.media_assets enable row level security;
  create policy media_read on public.media_assets for select to authenticated using(owner_user_id=auth.uid() or visibility='PUBLIC');
  create table public.cms_pages(id uuid primary key,slug text,language text check(language in ('en','ar')),title text,seo_title text,seo_description text,status text check(status in ('DRAFT','PUBLISHED','ARCHIVED')),blocks jsonb,published_at timestamptz,unique(slug,language));
@@ -74,6 +74,8 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926182554_paid_ticket_lifecycle.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926192052_provider_commerce_fulfillment.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../supabase/migrations/20260926202105_controlled_beta_notifications.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../supabase/migrations/20260926213847_agency_operating_system.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../supabase/migrations/20260927022124_domains_and_media_jobs.sql',import.meta.url),'utf8'));
     const admin = "10000000-0000-4000-8000-000000000001",
       a = "10000000-0000-4000-8000-000000000002",
       b = "10000000-0000-4000-8000-000000000003";
@@ -422,6 +424,25 @@ test("New module migrations enforce member/admin boundaries and validation", asy
     assert.equal((await db.query("select status from provider_orders where id=$1",[providerOrder])).rows[0].status,"DEPOSIT_PAID");assert.ok(catalog);
     assert.ok(Number((await db.query("select count(*) as count from user_notifications")).rows[0].count)>=2);assert.ok(Number((await db.query("select count(*) as count from notification_outbox")).rows[0].count)>=2);
     await db.query("update feature_flags set enabled=false where key='payments_enabled'");await act(b);await assert.rejects(db.query("select begin_provider_order_checkout($1,$2)",[providerOrder,"a0000000-0000-4000-8000-000000000004"]),/Payments are disabled/);
+    await act(admin);const roster=(await db.query("insert into agency_roster(organization_id,artist_profile_id,stage_name,genres,base_fee) values($1,$2,'Fixture DJ',array['Tech House'],5000) returning id",[org,dj])).rows[0].id;
+    await db.query("insert into agency_calendar_items(organization_id,roster_id,kind,title,starts_at,ends_at,status,created_by) values($1,$2,'HOLD','Festival hold',now()+interval '20 days',now()+interval '21 days','TENTATIVE',$3)",[org,roster,admin]);
+    const agencyOffer=(await db.query("insert into agency_offers(organization_id,roster_id,title,counterparty_name,event_name,fee,currency,terms,created_by) values($1,$2,'Festival headline','Fixture Promoter','Fixture Festival',9000,'SAR','Ninety minute performance with approved rider.',$3) returning id",[org,roster,admin])).rows[0].id;
+    await db.query("select agency_transition_offer($1,'SENT','Ready for artist approval')",[agencyOffer]);await act(a);await db.query("select agency_artist_offer_response($1,true,'Approved')",[agencyOffer]);
+    await act(admin);const contract=(await db.query("insert into agency_contracts(organization_id,offer_id,title,body,created_by) values($1,$2,'Performance agreement','Complete performance agreement with payment, cancellation, travel and rider terms.',$3) returning id",[org,agencyOffer,admin])).rows[0].id;
+    await db.query("select agency_send_contract($1)",[contract]);await db.query("select agency_sign_contract($1,'AGENCY')",[contract]);await act(a);await db.query("select agency_sign_contract($1,'ARTIST')",[contract]);await db.exec("reset role");assert.equal((await db.query("select status from agency_contracts where id=$1",[contract])).rows[0].status,"EXECUTED");
+    await act(a);
+    const customDomain=(await db.query("select request_custom_domain('artist-example.com','PROVIDER_PAGE',$1,null,'EXTERNAL') as id",[pageId])).rows[0].id;
+    assert.equal((await db.query("select status from custom_domains where id=$1",[customDomain])).rows[0].status,"REQUESTED");
+    await act(b);assert.equal((await db.query("select * from custom_domains where id=$1",[customDomain])).rows.length,0);
+    await assert.rejects(db.query("select request_domain_verification($1)",[customDomain]),/Domain permission denied/);
+    await act(a);await db.query("select request_domain_verification($1)",[customDomain]);
+    assert.equal((await db.query("select status from custom_domains where id=$1",[customDomain])).rows[0].status,"VERIFYING");
+    const queuedAsset=crypto.randomUUID();await db.exec("reset role");await db.query("insert into media_assets(id,owner_user_id,storage_key,visibility,kind,mime_type) values($1,$2,$3,'PRIVATE','IMAGE','image/png')",[queuedAsset,a,a+'/queued.png']);
+    await db.exec("set role service_role");
+    const mediaJob=(await db.query("select id,status from claim_platform_jobs(array['IMAGE_THUMBNAIL'],1)")).rows[0];assert.equal(mediaJob.status,"PROCESSING");
+    await db.query("select finish_platform_job($1,true,$2,null)",[mediaJob.id,{storageKey:a+'/thumb.webp'}]);
+    assert.equal((await db.query("select status from platform_jobs where id=$1",[mediaJob.id])).rows[0].status,"COMPLETED");
+    await db.exec("reset role");
     for (let i = 0; i < 3; i++)
       await db.query("select begin_ai_request('GENERATE_BIO')");
     await assert.rejects(

@@ -1,6 +1,6 @@
 # Cuelance User Guide / دليل مستخدم كيولانس
 
-Version: implementation update, 26 September 2026.
+Version: controlled-beta implementation update, 27 September 2026.
 
 Release note: this guide describes the new implementation. Deployment and device-level validation are pending; do not treat it as proof that the live site already contains these changes. Payment flows remain unavailable until the production merchant is configured.
 
@@ -124,6 +124,27 @@ Example: create “About Cuelance”, slug about-cuelance, add a hero and FAQ, p
 5. Unavailable AI: save your facts and continue editing manually. Missing PDF: publish an EPK first. Permission denied: use the correct organization or request the required role.
 
 Payments, offline admission, and automatic email delivery must not be treated as verified simply because their configuration appears in the admin area.
+
+## 12. Agency OS
+
+1. Select the Agency workspace and choose an organization. Open **Agency OS**.
+2. Add a represented artist by connecting an existing Cuelance artist or recording an external artist, genres, base fee and agency commission.
+3. Add calendar holds, confirmed bookings, travel, rehearsals, unavailable periods and tasks. Each entry can belong to one artist or the agency.
+4. Create an offer with the counterparty, event, performance duration, fee and full terms. Move it from draft to sent, negotiation, accepted, declined or withdrawn. Connected artists receive the offer in **My agency deals** and approve or decline it separately.
+5. Create a versioned contract from an eligible offer and send it for signatures. The agency and connected artist confirm separately; both confirmations execute the record.
+6. Select a deal in **Deal room** to record decisions and attach protected files already uploaded to the Media library.
+
+The beta signature action records authenticated acceptance and time. Do not treat it as a legally qualified electronic signature until Cuelance completes Saudi legal review and connects an approved signature/identity provider.
+
+## 13. Custom domains
+
+1. Open **Domains** from any workspace. You need an eligible paid plan or administrator entitlement and an EPK, provider page or organization to use as the destination.
+2. Enter the domain without `https://`. Choose whether it is externally registered or registered with GoDaddy, select the destination and check the domain.
+3. If the domain is available, open GoDaddy and complete the purchase there. Cuelance does not buy, charge for or renew domains during the controlled beta.
+4. After you control the domain, return to Cuelance and choose **I control this domain — connect it**. Provisioning runs in the background and then displays the exact DNS records required.
+5. Add those records with the registrar, wait for DNS propagation and choose **Verify DNS**. The screen tracks domain and certificate state. Do not remove the old records until the custom domain is active.
+
+Images and videos also enter a durable processing queue after upload. The original remains available while optional thumbnail or transcode workers process derivatives; a missing worker configuration does not discard the queued work.
 
 # الدليل العربي
 

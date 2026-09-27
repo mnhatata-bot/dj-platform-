@@ -58,6 +58,17 @@ const resources = [
   "beta_access",
   "user_notifications",
   "notification_outbox",
+  "agency_roster",
+  "agency_calendar_items",
+  "agency_offers",
+  "agency_offer_history",
+  "agency_contracts",
+  "agency_deal_messages",
+  "agency_deal_documents",
+  "custom_domains",
+  "domain_dns_records",
+  "platform_jobs",
+  "media_derivatives",
 ];
 const roles = [
   "USER",

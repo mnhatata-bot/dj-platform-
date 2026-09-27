@@ -1,4 +1,4 @@
-# Current release: flexible provider commerce and paid operations — 26 September 2026
+# Current release: controlled-beta implementation — 27 September 2026
 
 This section supersedes older deployment-blocker notes below for the changes listed here. It does not certify full BRD/SRS completion.
 
@@ -20,11 +20,15 @@ Added flexible provider commerce for every provider category: multiple catalogue
 
 Controlled-beta Chunk 1 adds an invite-only access perimeter, administrator approval/revocation, a database-enforced payment kill switch that defaults off, in-app notifications, a retryable email outbox, Resend-compatible delivery, Vercel Cron processing, admin queue visibility, and rental/service request dates and variant selection. Webhooks and captures remain able to finish an already-started transaction even after new checkout is disabled.
 
+Controlled-beta Chunk 2 adds the Agency OS: connected or external artist rosters, fees and commission terms, shared holds/bookings/travel/rehearsal calendar, offer pipeline and immutable history, artist approval, versioned contracts with separate agency/artist acceptance records, protected deal-room notes and Media library documents, artist-side agency workflow, notifications and central admin visibility. The recorded acceptance is an application audit trail; production use as a legally qualified electronic signature still requires Saudi legal review and the selected identity/signature provider.
+
+Controlled-beta Chunk 3 adds custom-domain operations and durable media jobs: entitled users can connect a domain to an owned EPK, provider page or organization; search availability through the optional GoDaddy adapter; follow an explicit affiliate purchase link; request Vercel project attachment; receive DNS instructions; and re-run verification while certificate state remains visible. Domain purchasing, renewal and billing are deliberately disabled in beta. Image and video registration now enqueues retryable derivative jobs, with an authenticated external processor contract for thumbnails and transcodes. Cron endpoints do not claim work when their provider configuration is absent, so originals remain usable without losing queued jobs.
+
 Database migrations applied to the connected Supabase project: provider_pages_and_offerings, event_visibility_and_staff_boundaries, provider_admin_visibility_and_rpc_grants. All new tables use RLS and explicit grants. Customers cannot change inquiry identity or provider replies. Scanner membership cannot edit events. Anonymous access to authenticated operational/admin RPCs was revoked.
 
-Validation: TypeScript and PostgreSQL rule tests pass. Tests cover provider ownership, draft/public visibility, private event access, scanner edit denial, inquiry identity protection, flexible catalogue records, quote/deposit transitions and the pre-existing module rules. Public browser/deployment acceptance is recorded after deployment. No full authenticated browser regression or physical camera test has been completed for this release.
+Validation: TypeScript, the Next.js production build and PostgreSQL rule tests pass. Tests cover provider ownership, draft/public visibility, private event access, scanner edit denial, inquiry identity protection, flexible catalogue records, quote/deposit transitions, domain ownership/entitlement boundaries, verification authorization and durable media job claiming/completion. Public browser/deployment acceptance is recorded after deployment. No physical camera test has been completed for this release.
 
-Outstanding controlled-beta chunks: Chunk 2 agency roster/calendar/offer/contract/deal-room workflows; Chunk 3 custom-domain and GoDaddy readiness, thumbnail/transcoding jobs, complete multi-device accessibility/RTL, automated end-to-end acceptance and the single final deployment. Production payment merchant selection, provider payout/KYC/commission rules and live email credentials remain intentionally gated. The legacy Vendor OS catalog and flexible provider catalogues are separate records; automatic migration/synchronization between them is not implemented.
+Outstanding before the single final deployment: authenticated browser regression, multi-device accessibility/RTL acceptance, production migration review/application, required environment configuration and deployment verification. Production payment merchant selection, domain purchasing/renewal, provider payout/KYC/commission rules, legally qualified signature integration, live email credentials and the external media processor remain intentionally gated. The legacy Vendor OS catalog and flexible provider catalogues are separate records; automatic migration/synchronization between them is not implemented.
 
 ## Historical release notes
 

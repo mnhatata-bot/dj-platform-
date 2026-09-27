@@ -3,6 +3,8 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "crons": [
-    { "path": "/api/v1/jobs/notifications", "schedule": "*/5 * * * *" }
+    { "path": "/api/v1/jobs/notifications", "schedule": "*/5 * * * *" },
+    { "path": "/api/v1/jobs/domains", "schedule": "*/10 * * * *" },
+    { "path": "/api/v1/jobs/media", "schedule": "*/10 * * * *" }
   ]
 }
