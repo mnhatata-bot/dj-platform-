@@ -1,3 +1,4 @@
+@import "lenis/dist/lenis.css";
 @import url("https://fonts.googleapis.com/css2?family=DM+Mono&family=Manrope:wght@400;500;600;700;800&display=swap");
 :root {
   --bg: #07080a;
