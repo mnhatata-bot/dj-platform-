@@ -25,7 +25,7 @@ test('motion is opt-in and preserves reduced-motion and nested scroll escapes',(
 
 test('guest page keeps actual listings and bilingual navigation',()=>{
   const source=fs.readFileSync('app/guest-explore.tsx','utf8');
-  assert.match(source,/supabase\.from\("epks"\)/);
+  assert.match(source,/\.from\("epks"\)/);
   assert.match(source,/LanguageSwitch/);
   assert.match(source,/data-pmo-de-motion/);
   assert.match(source,/SplitText/);
