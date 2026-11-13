@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { LanguageSwitch, useLocale } from "@/modules/localization/ui/provider";
 
 import {Visual} from "@/modules/providers/ui/visual";
+import SplitText from "@/modules/pmo-de-motion/SplitText";
+import { MotionRuntime } from "@/modules/pmo-de-motion/MotionRuntime";
 
 type Section = "artists" | "events" | "opportunities" | "communities";
 type Listing = {
@@ -98,7 +100,8 @@ export default function GuestExplore() {
   }, [section, retry]);
 
   return (
-    <div className="app">
+    <div className="app" data-pmo-de-motion>
+      <MotionRuntime />
       <header className="topbar">
         <div className="brand">
           CUE<span>LANCE</span>
@@ -117,13 +120,13 @@ export default function GuestExplore() {
         className="content"
         style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 20px" }}
       >
-        <header className="page-heading">
+        <header className="page-heading" data-pmo-de-enter>
           <div>
             <p className="eyebrow">
               {ar ? "اكتشف كيولانس" : "DISCOVER CUELANCE"}
             </p>
             <h1>
-              {ar ? "اعثر على تواصلك القادم." : "Find your next connection."}
+              {ar ? "اعثر على تواصلك القادم." : <SplitText tag="span" text="Find your next connection." trigger="load" splitType="words" textAlign="start" delay={75} duration={0.8} />}
             </h1>
             <p>
               {ar
